@@ -1,0 +1,144 @@
+# Registro de decisiones y cambios - MC-03 App
+
+## 2026-05-12
+
+### Decisiones principales
+- Se implementó un backend en `FastAPI` para el sistema de seguimiento neonatal.
+- Se definieron endpoints iniciales:
+  - `GET /health`
+  - `GET /api/report/summary`
+  - `GET /api/report/omisos`
+- Se creó un frontend con `React`, `Vite` y `Tailwind CSS` para un dashboard de cumplimiento tipo HUD.
+- El backend lee el archivo Excel `data_samples/MC 03_FT_BCG_HVB_PAQUETE RN.xlsx` desde la hoja `Detalle_Ate`, con cabeceras en la fila 10 y fecha de corte en `B8`.
+- Se creó un esquema inicial de datos y configuraciones de negocio en `backend/config.py` para los códigos y reglas MC-03.
+
+### Historial de cambios realizados
+- Scaffold de backend creado: `backend/main.py`, `backend/schemas.py`, `backend/services.py`, `backend/requirements.txt`, `backend/README.md`.
+- Scaffold de frontend creado: `frontend/package.json`, `frontend/vite.config.js`, `frontend/tailwind.config.js`, `frontend/postcss.config.js`, `frontend/index.html`, `frontend/src/main.jsx`, `frontend/src/App.jsx`, `frontend/src/index.css`, `frontend/README.md`.
+- Archivo `.gitignore` agregado en la raíz del proyecto.
+- `README.md` principal actualizado con instrucciones de arranque y estructura del workspace.
+- Se ajustó la carga de Excel para usar la hoja y fila especificadas, y leer la fecha de corte desde `B8`.
+
+### Estado actual
+- Backend y frontend están preparados para ejecutarse.
+- Dependencias de backend instaladas con Python 3.13.
+- Dependencias de frontend instaladas con `npm`.
+- El proyecto está listo para continuar con la lógica real de cálculo de cumplimiento y visualización de datos.
+
+### Comandos para arrancar el proyecto
+
+#### Backend
+```powershell
+cd "c:\Users\USUARIO\Documents\My projects\mc03-app\backend"
+# Crear o activar entorno virtual si no existe
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn backend.main:app --reload
+```
+
+#### Frontend
+```powershell
+cd "c:\Users\USUARIO\Documents\My projects\mc03-app\frontend"
+npm install
+npm run dev
+```
+
+### Cómo verificar
+- Backend: abrir `http://127.0.0.1:8000/health`
+- Frontend: abrir la URL que muestre Vite, normalmente `http://127.0.0.1:4173`
+- La aplicación frontend está configurada para hacer proxy a `/api` hacia el backend local.
+
+### Siguientes pasos sugeridos
+- Implementar el cálculo real de la tasa de cobertura con datos del padrón nominal y HIS.
+- Agregar el endpoint de exportación de omisos en formato CSV.
+- Mejorar el tablero con indicadores de semáforo por mes y alertas de incumplimiento.
+
+### Avance posterior
+- Se implementó el cálculo mensual real del reporte MC-03 para junio-noviembre 2026 usando `Mes_eva`.
+- El denominador ahora filtra niños evaluados con seguro SIS o Sin Seguro, excluyendo bajo peso y prematuridad según reglas de negocio.
+- El numerador ahora valida el paquete completo: BCG, HvB, 3 CRED en ventana/intervalo y tamizaje neonatal en ventana.
+- Se corrigieron los omisos y se agregó `GET /api/report/omisos.csv` para descargar el listado en CSV.
+- Se actualizó el frontend para mostrar meses cumplidos, conteo de omisos, tabla de omisos recientes y descarga CSV.
+- Se creó un entorno local `.venv312` porque el `.venv` existente apunta a Python 3.13 con acceso denegado. El nuevo entorno está ignorado por `.gitignore`.
+
+### Verificación realizada
+- Backend validado con llamadas directas: salud OK, junio 2026 con denominador 13, numerador 0 y 13 omisos.
+- Frontend validado con `npm.cmd run build`.
+- App abierta en navegador integrado en `http://127.0.0.1:4173`, sin errores de consola.
+- Búsqueda DNI probada con `94595491`, mostrando paquete incompleto correctamente.
+
+### Organización de vistas
+- Se separó la aplicación en dos vistas principales: `Búsqueda DNI` como vista inicial y `Dashboard indicador` como vista de seguimiento del compromiso.
+- `frontend/src/App.jsx` ahora funciona como contenedor de navegación entre vistas.
+- `frontend/src/Dashboard.jsx` concentra el resumen mensual, omisos y descarga CSV.
+- `frontend/src/SearchDNI.jsx` queda enfocado en la consulta individual por DNI.
+- Se validó la navegación en navegador integrado: la app inicia en búsqueda DNI y el botón `Dashboard indicador` muestra el seguimiento mensual sin errores de consola.
+
+### Detalle operativo por prestación
+- La búsqueda por DNI ahora devuelve y muestra `estado`, `mensaje`, `fecha_inicio` y `fecha_limite` para BCG, HvB, CRED 1-3 y tamizaje neonatal.
+- Se distinguen estados: `Cumple`, `En ventana`, `Programado` e `Incumple`.
+- Si no hay fecha registrada y aún está dentro de ventana, el sistema advierte la fecha límite.
+- Si la ventana aún no inicia, el sistema muestra el próximo control con fecha de inicio y fecha límite.
+- Si la atención se hizo fuera de plazo o con código incorrecto, el sistema marca incumplimiento con el motivo.
+- Si los campos están vacíos y el plazo venció, el sistema informa que no se registra atención y muestra la fecha de vencimiento.
+- Validación realizada con DNI `94635370`: CRED 2 aparece `En ventana` con límite `16/05/2026`, y CRED 3 aparece `Programado` desde `17/05/2026`.
+
+### Historial del dashboard
+- El resumen mensual ahora incluye enero-noviembre 2026 para visualizar historial y avance del indicador.
+- Enero-mayo se marca como `Histórico`; junio-noviembre se marca como `Verificación`.
+- La regla del compromiso se mantiene solo sobre los 6 meses oficiales de verificación.
+- En la interfaz se cambió la denominación visible de `omisos` a `incumplidos`.
+- Se agregó endpoint alternativo `GET /api/report/incumplidos` y descarga `GET /api/report/incumplidos.csv`.
+- Validación realizada: el resumen devuelve 11 meses, `months_evaluated` permanece en 6, enero muestra cobertura histórica y junio mantiene el inicio del periodo oficial.
+
+### Configuración de población objetivo
+- Se agregó vista `Configuración` para seleccionar la población objetivo desde la columna `Desc_prov`.
+- El filtro por defecto es `ABANCAY`, alineado a la población objetivo de la Red de Salud Abancay.
+- Se agregó opción `Todos los datos` para calcular y visualizar el indicador con todas las provincias del archivo.
+- El filtro se aplica al dashboard, búsqueda por DNI y descarga de incumplidos.
+- El backend ahora expone `GET /api/config/options` con las provincias disponibles.
+- Los registros incumplidos ahora incluyen provincia, microred, establecimiento y código RENAES para alertar al responsable del EESS.
+- Validación realizada: con `ABANCAY` se obtienen 63 incumplidos; con `Todos los datos`, 138 incumplidos. La tabla del dashboard muestra la columna `Establecimiento`.
+
+### Meta y semaforización
+- Se actualizó la meta mensual por defecto del indicador a `70.7%`.
+- La vista `Configuración` permite revisar y ajustar la meta del indicador.
+- El dashboard semaforiza cada mes en dos estados:
+  - `Cumple`: cobertura mayor o igual a la meta.
+  - `No cumple`: cobertura menor a la meta.
+- El backend acepta `target` en `GET /api/report/summary` y devuelve `target_coverage` y `semaphore` por mes.
+- La vista `Configuración` ahora muestra criterios de evaluación basados en `Obs_Eval`: incluye `Evaluado` y excluye `No_Evaluado`.
+- El cálculo del denominador ya no recalcula exclusión por peso ni edad gestacional; toma `Obs_Eval` como columna ya depurada por el archivo.
+- La vista `Configuración` ahora muestra tipos de seguro incluidos: SIS, NINGUNO, SIN SEGURO, SIN_SEGURO y celdas vacías como `VACIO/SIN SEGURO`.
+- Validación realizada con `ABANCAY` y meta `70.7%`: enero queda `No cumple`, febrero-marzo-abril `Cumple`, mayo-junio `No cumple`.
+
+### Incumplidos por mes y exportación Excel
+- La tabla de incumplidos del dashboard ahora se filtra por `Mes_eva`.
+- Por defecto se selecciona el mes del corte del archivo; con corte `2026-05-11`, se muestra mayo 2026.
+- La tabla de incumplidos ahora tiene paginación de 10 registros por página.
+- Se agregó descarga Excel `GET /api/report/incumplidos.xlsx` con encabezados ordenados, autofiltro, columnas ajustadas y hoja `Incumplidos`.
+- La descarga Excel acepta el parámetro `month` para exportar solo el mes seleccionado.
+- Los registros incumplidos ahora incluyen `Mes_eva`, mes y año para permitir filtros mensuales.
+- Validación realizada con `ABANCAY` y mayo 2026: 66 incumplidos, 7 páginas, descarga Excel OK.
+### Mejora visual e identidad de salud
+- Se instalo `lucide-react` para agregar iconos consistentes en navegacion, tarjetas, formularios, estados y tablas.
+- Se actualizo la paleta visual con los acentos solicitados: `#E2CEFF`, `#FACEFF` y `#FFCEEB`, manteniendo superficies claras y estados clinicos verde/rojo para cumplimiento.
+- Se agregaron animaciones de entrada, transiciones hover, sombras suaves y botones con icono para una experiencia mas agradable.
+- Se retiro el tema oscuro base del `index.html` y se definio un fondo claro para alinear la interfaz con una plataforma de salud.
+- Se redisenaron las vistas de busqueda, dashboard y configuracion con paneles claros, badges legibles, iconos por seccion y controles con foco visible.
+- Validacion realizada: `npm.cmd run build` OK; navegador integrado abre busqueda y dashboard sin errores de consola.
+
+### Ajuste de contraste de paleta
+- Se reemplazo la paleta visual por `#FACEFF`, `#FFFACE` y `#CEFFFA`.
+- Se redujo el uso de blanco puro usando fondos tintados, paneles con mezcla rosa/menta/amarillo y encabezados de tabla con color.
+- Se mantuvieron los estados del indicador en verde y rojo para no confundir la lectura de cumplimiento.
+- Validacion realizada: `npm.cmd run build` OK; busqueda y dashboard abren sin errores de consola.
+
+### Refinamiento profesional de contraste
+- Se ajusto la identidad visual para usar los colores pastel solo como acentos, evitando que dominen toda la plataforma.
+- La cabecera ahora usa un gradiente profesional azul petroleo/teal con texto blanco de alto contraste.
+- Los paneles volvieron a superficies blancas sobrias sobre fondo neutro, con bordes discretos y sombras controladas.
+- Se normalizaron botones primarios y secundarios: primarios en teal con texto blanco, secundarios blancos con borde y hover claro.
+- Se mejoro el contraste de tablas, chips, iconos y controles de formulario para que los textos sean mas legibles.
+- Validacion realizada: `npm.cmd run build` OK; la vista principal abre en navegador integrado sin errores de consola.
