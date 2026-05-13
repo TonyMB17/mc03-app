@@ -58,7 +58,16 @@ function StatusCard({ title, value, icon: Icon, tone = 'lilac' }) {
   );
 }
 
-function PeriodBadge({ inVerificationPeriod }) {
+function PeriodBadge({ inVerificationPeriod, isCurrentEvaluationMonth = false }) {
+  if (isCurrentEvaluationMonth) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-amber-800 ring-1 ring-amber-200">
+        <CalendarDays className="h-3.5 w-3.5" />
+        Mes en evaluacion
+      </span>
+    );
+  }
+
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] ${
       inVerificationPeriod ? 'bg-clinic-mint text-clinic-teal ring-1 ring-teal-100' : 'bg-slate-100 text-clinic-muted ring-1 ring-slate-200'
@@ -97,21 +106,20 @@ function buildMonthKey(item) {
   return `${item.year}_${monthNumber}`;
 }
 
-function MiniMonthCard({ item }) {
-  const style = semaphoreStyles[item.semaphore] ?? semaphoreStyles.red;
-  return (
-    <div className={`inner-panel border-l-4 ${style.border} p-4 transition hover:-translate-y-0.5 hover:shadow-soft`}>
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-bold capitalize text-clinic-ink">{item.month}</p>
-        <span className={`h-2.5 w-2.5 rounded-full ${style.dot}`} aria-hidden="true" />
-      </div>
-      <p className="mt-3 text-2xl font-bold text-clinic-ink">{item.coverage}%</p>
-      <p className="text-sm text-clinic-muted">{item.numerator} de {item.denominator}</p>
-      <div className="mt-3">
-        <SemaphoreBadge value={item.semaphore} />
-      </div>
-    </div>
-  );
+function buildMonthOrder(item) {
+  const [year, month] = buildMonthKey(item).split('_').map(Number);
+  return year * 12 + month;
+}
+
+function formatDate(value) {
+  if (!value) return '-';
+  const normalizedValue = String(value).replace(' ', 'T');
+  const date = new Date(normalizedValue);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${day} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 function Dashboard({ selectedProvince, targetCoverage }) {
@@ -140,19 +148,36 @@ function Dashboard({ selectedProvince, targetCoverage }) {
   useEffect(() => {
     if (!summary?.monthly?.length) return;
 
+    const monthsWithData = summary.monthly.filter((item) => item.denominator > 0);
     const cutoffMonthKey = summary.cut_off_date
       ? `${new Date(summary.cut_off_date).getUTCFullYear()}_${new Date(summary.cut_off_date).getUTCMonth() + 1}`
       : '';
-    const availableCutoffMonth = summary.monthly.find((item) => buildMonthKey(item) === cutoffMonthKey);
-    const fallbackMonth = [...summary.monthly].reverse().find((item) => item.denominator > 0) ?? summary.monthly[0];
+    const availableCutoffMonth = monthsWithData.find((item) => buildMonthKey(item) === cutoffMonthKey);
+    const fallbackMonth = [...monthsWithData].reverse()[0] ?? summary.monthly[0];
     setSelectedMonth(buildMonthKey(availableCutoffMonth ?? fallbackMonth));
     setPage(1);
   }, [summary]);
 
   const incumplidosCount = summary?.omisos?.length ?? 0;
-  const historicalMonths = summary?.monthly?.filter((item) => !item.in_verification_period) ?? [];
-  const verificationMonths = summary?.monthly?.filter((item) => item.in_verification_period) ?? [];
+  const monthsWithData = summary?.monthly?.filter((item) => item.denominator > 0) ?? [];
   const activeTarget = summary?.target_coverage ?? targetCoverage;
+  const currentEvaluationKey = summary?.cut_off_date
+    ? `${new Date(summary.cut_off_date).getUTCFullYear()}_${new Date(summary.cut_off_date).getUTCMonth() + 1}`
+    : '';
+  const currentEvaluationOrder = currentEvaluationKey
+    ? Number(currentEvaluationKey.split('_')[0]) * 12 + Number(currentEvaluationKey.split('_')[1])
+    : 0;
+  const monthsThroughCurrent = currentEvaluationOrder
+    ? monthsWithData.filter((item) => buildMonthOrder(item) <= currentEvaluationOrder)
+    : monthsWithData;
+  const monthsMetThroughCurrent = monthsThroughCurrent.filter((item) => item.semaphore === 'green').length;
+  const currentEvaluationMonth = monthsWithData.find((item) => buildMonthKey(item) === currentEvaluationKey);
+  const currentTargetCount = currentEvaluationMonth
+    ? Math.ceil((currentEvaluationMonth.denominator * activeTarget) / 100)
+    : 0;
+  const currentMissingCount = currentEvaluationMonth
+    ? Math.max(0, currentTargetCount - currentEvaluationMonth.numerator)
+    : 0;
 
   const selectedMonthItem = summary?.monthly?.find((item) => buildMonthKey(item) === selectedMonth);
   const selectedMonthLabel = selectedMonthItem ? `${selectedMonthItem.month} ${selectedMonthItem.year}` : 'mes seleccionado';
@@ -179,7 +204,7 @@ function Dashboard({ selectedProvince, targetCoverage }) {
       <section className="grid gap-4 md:grid-cols-4">
         <StatusCard title="Estado API" value={summary ? 'Conectado' : status} icon={summary ? CheckCircle2 : Loader2} tone="blue" />
         <StatusCard title="Meta" value={`${activeTarget}%`} icon={Target} tone="lilac" />
-        <StatusCard title="Meses cumplidos" value={summary ? `${summary.months_met}/${summary.months_evaluated}` : '-'} icon={TrendingUp} tone="pink" />
+        <StatusCard title="Meses cumplidos" value={summary ? `${monthsMetThroughCurrent}/${monthsThroughCurrent.length}` : '-'} icon={TrendingUp} tone="pink" />
         <StatusCard title="Incumplidos total" value={summary ? incumplidosCount : '-'} icon={UsersRound} tone="rose" />
       </section>
 
@@ -214,6 +239,35 @@ function Dashboard({ selectedProvince, targetCoverage }) {
           </div>
         </div>
 
+        {currentEvaluationMonth && (
+          <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-amber-800">
+                  <CalendarDays className="h-4 w-4" />
+                  Mes en evaluacion: {currentEvaluationMonth.month} {currentEvaluationMonth.year}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-amber-900">
+                  Avance hasta el corte: {currentEvaluationMonth.numerator} de {currentEvaluationMonth.denominator} registros completos.
+                  {currentMissingCount > 0
+                    ? ` Faltan ${currentMissingCount} registros para alcanzar la meta de ${activeTarget}%.`
+                    : ` La meta de ${activeTarget}% ya se alcanza con los registros actuales.`}
+                </p>
+              </div>
+              <div className="min-w-48 rounded-lg bg-white/80 p-3 ring-1 ring-amber-200">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-800">Cobertura actual</p>
+                <p className="mt-1 text-3xl font-bold text-clinic-ink">{currentEvaluationMonth.coverage}%</p>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-amber-100">
+                  <div
+                    className="h-full rounded-full bg-clinic-teal"
+                    style={{ width: `${Math.min(100, currentEvaluationMonth.coverage)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mt-6 overflow-hidden rounded-xl border border-clinic-border bg-white/70">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-clinic-border text-sm">
@@ -228,16 +282,39 @@ function Dashboard({ selectedProvince, targetCoverage }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-clinic-border bg-white">
-                {summary?.monthly?.map((item) => (
-                  <tr key={`${item.month}-${item.year}`} className={`border-l-4 ${semaphoreStyles[item.semaphore]?.border ?? semaphoreStyles.red.border} text-clinic-muted transition hover:bg-clinic-lilac/10`}>
+                {monthsWithData.map((item) => {
+                  const isCurrentEvaluationMonth = buildMonthKey(item) === currentEvaluationKey;
+                  return (
+                  <tr
+                    key={`${item.month}-${item.year}`}
+                    className={`border-l-4 ${
+                      isCurrentEvaluationMonth
+                        ? 'border-amber-400 bg-amber-50/70'
+                        : semaphoreStyles[item.semaphore]?.border ?? semaphoreStyles.red.border
+                    } text-clinic-muted transition hover:bg-clinic-lilac/10`}
+                  >
                     <td className="px-4 py-3 font-bold capitalize text-clinic-ink">{item.month} {item.year}</td>
-                    <td className="px-4 py-3"><PeriodBadge inVerificationPeriod={item.in_verification_period} /></td>
+                    <td className="px-4 py-3">
+                      <PeriodBadge
+                        inVerificationPeriod={item.in_verification_period}
+                        isCurrentEvaluationMonth={isCurrentEvaluationMonth}
+                      />
+                    </td>
                     <td className="px-4 py-3 font-semibold text-clinic-ink">{item.coverage}%</td>
                     <td className="px-4 py-3">{item.numerator}</td>
                     <td className="px-4 py-3">{item.denominator}</td>
                     <td className="px-4 py-3"><SemaphoreBadge value={item.semaphore} /></td>
                   </tr>
-                )) ?? (
+                  );
+                })}
+                {summary && monthsWithData.length === 0 && (
+                  <tr>
+                    <td className="px-4 py-4 text-clinic-muted" colSpan="6">
+                      No hay meses con registros evaluables para mostrar.
+                    </td>
+                  </tr>
+                )}
+                {!summary && (
                   <tr>
                     <td className="px-4 py-4 text-clinic-muted" colSpan="6">Cargando historial mensual...</td>
                   </tr>
@@ -246,26 +323,6 @@ function Dashboard({ selectedProvince, targetCoverage }) {
             </table>
           </div>
         </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        <article className="panel p-5 lg:p-6">
-          <h2 className="text-2xl font-bold text-clinic-ink">Historial previo</h2>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            {historicalMonths.map((item) => (
-              <MiniMonthCard key={`${item.month}-${item.year}`} item={item} />
-            ))}
-          </div>
-        </article>
-
-        <article className="panel p-5 lg:p-6">
-          <h2 className="text-2xl font-bold text-clinic-ink">Periodo de verificacion</h2>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            {verificationMonths.map((item) => (
-              <MiniMonthCard key={`${item.month}-${item.year}`} item={item} />
-            ))}
-          </div>
-        </article>
       </section>
 
       <section className="panel p-5 lg:p-6">
@@ -280,7 +337,7 @@ function Dashboard({ selectedProvince, targetCoverage }) {
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-muted">Mes evaluacion</span>
               <select value={selectedMonth} onChange={handleMonthChange} className="field min-w-48">
-                {summary?.monthly?.map((item) => (
+                {monthsWithData.map((item) => (
                   <option key={buildMonthKey(item)} value={buildMonthKey(item)}>
                     {item.month} {item.year}
                   </option>
@@ -312,6 +369,7 @@ function Dashboard({ selectedProvince, targetCoverage }) {
                 <tr className="text-left text-clinic-ink">
                   <th className="px-4 py-3 font-bold">DNI</th>
                   <th className="px-4 py-3 font-bold">Paciente</th>
+                  <th className="px-4 py-3 font-bold">Nacimiento</th>
                   <th className="px-4 py-3 font-bold">Establecimiento</th>
                   <th className="px-4 py-3 font-bold">Motivo</th>
                 </tr>
@@ -323,21 +381,20 @@ function Dashboard({ selectedProvince, targetCoverage }) {
                     <td className="px-4 py-3">
                       {[item.afi_nombres, item.afi_appaterno, item.afi_apmaterno].filter(Boolean).join(' ') || '-'}
                     </td>
+                    <td className="px-4 py-3 font-semibold text-clinic-ink">{formatDate(item.fec_Nac)}</td>
                     <td className="px-4 py-3">
                       <p className="inline-flex items-center gap-2 font-bold text-clinic-ink">
                         <Hospital className="h-4 w-4 text-clinic-violet" />
                         {item.Des_EESS || 'Sin establecimiento'}
                       </p>
-                      <p className="mt-1 text-xs text-clinic-muted">
-                        {item.Des_MicroRed || '-'} / RENAES {item.pre_CodigoRENAES || '-'}
-                      </p>
+                      {item.Des_MicroRed && <p className="mt-1 text-xs text-clinic-muted">{item.Des_MicroRed}</p>}
                     </td>
                     <td className="px-4 py-3">{item.reason}</td>
                   </tr>
                 ))}
                 {summary && monthIncumplidos.length === 0 && (
                   <tr>
-                    <td className="px-4 py-4 text-clinic-muted" colSpan="4">
+                    <td className="px-4 py-4 text-clinic-muted" colSpan="5">
                       <span className="inline-flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                         No hay incumplidos en el mes seleccionado.
@@ -347,7 +404,7 @@ function Dashboard({ selectedProvince, targetCoverage }) {
                 )}
                 {!summary && (
                   <tr>
-                    <td className="px-4 py-4 text-clinic-muted" colSpan="4">
+                    <td className="px-4 py-4 text-clinic-muted" colSpan="5">
                       <span className="inline-flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin text-clinic-violet" />
                         Cargando incumplidos...

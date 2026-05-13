@@ -27,6 +27,7 @@ class OmisoItem(BaseModel):
     year: int | None = None
     afi_DNI: str | None = None
     NumCNV: str | None = None
+    fec_Nac: str | None = None
     afi_nombres: str | None = None
     afi_appaterno: str | None = None
     afi_apmaterno: str | None = None

@@ -55,11 +55,13 @@ function StatusPill({ estado = 'pendiente' }) {
 
 function formatDate(value) {
   if (!value) return '-';
-  return new Date(value).toLocaleDateString('es-PE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  const normalizedValue = String(value).replace(' ', 'T');
+  const date = new Date(normalizedValue);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${day} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 function DetailMessage({ item }) {
@@ -175,7 +177,7 @@ function SearchDNI({ selectedProvince }) {
                 label="Nombre"
                 value={[result.personal.afi_nombres, result.personal.afi_appaterno, result.personal.afi_apmaterno].filter(Boolean).join(' ')}
               />
-              <InfoItem icon={CalendarClock} label="Fecha de nacimiento" value={result.personal.fec_Nac} />
+              <InfoItem icon={CalendarClock} label="Fecha de nacimiento" value={formatDate(result.personal.fec_Nac)} />
               <InfoItem icon={Timer} label="Peso / EG" value={`${result.personal.peso || '-'} g / ${result.personal.edadGEst || '-'} sem.`} />
               <div className="rounded-xl border border-clinic-violet/10 bg-white/62 p-4">
                 <p className="inline-flex items-center gap-2 text-sm font-semibold text-clinic-muted">
@@ -201,7 +203,7 @@ function SearchDNI({ selectedProvince }) {
                       <div>
                         <p className="font-bold text-clinic-ink">{vacuna}</p>
                         <p className="text-sm text-clinic-muted">Codigo: {data.codigo}</p>
-                        <p className="text-sm text-clinic-muted">Fecha: {data.fecha || '-'}</p>
+                        <p className="text-sm text-clinic-muted">Fecha: {formatDate(data.fecha)}</p>
                         <p className="text-sm text-clinic-muted">Edad: {data.edad_atencion_dias ?? '-'} dias</p>
                       </div>
                       <StatusPill estado={data.estado} />
@@ -221,7 +223,7 @@ function SearchDNI({ selectedProvince }) {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-bold text-clinic-ink">CRED {cred.numero}</p>
-                      <p className="mt-2 text-sm text-clinic-muted">Fecha: {cred.fecha || '-'}</p>
+                      <p className="mt-2 text-sm text-clinic-muted">Fecha: {formatDate(cred.fecha)}</p>
                       <p className="text-sm text-clinic-muted">Edad: {cred.edad_atencion_dias ?? '-'} dias</p>
                     </div>
                     <StatusPill estado={cred.estado} />
@@ -236,7 +238,7 @@ function SearchDNI({ selectedProvince }) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <SectionTitle icon={TestTube2} title="Tamizaje neonatal" />
-                <p className="mt-4 text-sm text-clinic-muted">Fecha: {result.tamizaje.fecha || '-'}</p>
+                <p className="mt-4 text-sm text-clinic-muted">Fecha: {formatDate(result.tamizaje.fecha)}</p>
                 <p className="text-sm text-clinic-muted">Edad: {result.tamizaje.edad_atencion_dias ?? '-'} dias</p>
               </div>
               <StatusPill estado={result.tamizaje.estado} />

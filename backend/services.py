@@ -439,6 +439,7 @@ def _omiso_from_row(row: pd.Series, reasons: list[str]) -> dict[str, Any]:
         "year": year,
         "afi_DNI": _clean_text(_safe_row_value(row, "afi_DNI")) or None,
         "NumCNV": _clean_text(_safe_row_value(row, "NumCNV")) or None,
+        "fec_Nac": _clean_text(_safe_row_value(row, "fec_Nac")) or None,
         "afi_nombres": _clean_text(_safe_row_value(row, "afi_nombres")) or None,
         "afi_appaterno": _clean_text(_safe_row_value(row, "afi_appaterno")) or None,
         "afi_apmaterno": _clean_text(_safe_row_value(row, "afi_apmaterno")) or None,

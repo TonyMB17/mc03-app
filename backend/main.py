@@ -50,6 +50,7 @@ def _incumplidos_xlsx(omisos: list[dict]) -> bytes:
         ("Año", "year"),
         ("DNI", "afi_DNI"),
         ("CNV", "NumCNV"),
+        ("Fecha de nacimiento", "fec_Nac"),
         ("Nombres", "afi_nombres"),
         ("Apellido paterno", "afi_appaterno"),
         ("Apellido materno", "afi_apmaterno"),

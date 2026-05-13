@@ -142,3 +142,33 @@ npm run dev
 - Se normalizaron botones primarios y secundarios: primarios en teal con texto blanco, secundarios blancos con borde y hover claro.
 - Se mejoro el contraste de tablas, chips, iconos y controles de formulario para que los textos sean mas legibles.
 - Validacion realizada: `npm.cmd run build` OK; la vista principal abre en navegador integrado sin errores de consola.
+
+### Limpieza de dashboard mensual
+- Se elimino la seccion duplicada de tarjetas `Historial previo` / `Periodo de verificacion`, porque repetia la informacion de `Avance del indicador`.
+- El dashboard ahora muestra en la tabla mensual solo meses con denominador mayor a 0.
+- El selector de `Mes evaluacion` para incumplidos tambien se limita a meses con denominador mayor a 0.
+- Validacion realizada: con `ABANCAY`, la tabla muestra enero-junio 2026 y oculta julio-noviembre porque estan en 0 de 0; `Historial previo` ya no aparece.
+
+### Mes en evaluacion actual
+- El dashboard identifica el mes actual de evaluacion a partir de la fecha de corte del archivo.
+- Se agrego un bloque destacado dentro de `Avance del indicador` con cobertura actual, numerador, denominador y registros faltantes para alcanzar la meta.
+- La fila del mes en evaluacion se resalta en la tabla mensual y reemplaza la etiqueta `Historico` / `Verificacion` por `Mes en evaluacion`.
+- Validacion realizada con corte `10 de mayo de 2026`: mayo 2026 aparece como `Mes en evaluacion`, con avance `47 de 113`, cobertura `41.59%` y 33 registros faltantes para llegar a 70.7%.
+
+### Ajustes de card e incumplidos
+- El card `Meses cumplidos` ahora se calcula solo con meses evaluables hasta el mes actual de corte.
+- Con corte de mayo 2026, el card muestra `3/5` porque febrero, marzo y abril cumplen; mayo sigue en evaluacion.
+- En la tabla de incumplidos se retiro el codigo RENAES del detalle de establecimiento.
+- Validacion realizada en dashboard: `Meses cumplidos` muestra `3/5` y ya no aparece texto `RENAES` en la tabla de incumplidos.
+
+### Formato visual de fechas
+- Se normalizo el formato de fechas en la busqueda por DNI a `dd mmm yyyy`, por ejemplo `04 may 2026`.
+- El formateo se aplica a fecha de nacimiento, vacunas, controles CRED, tamizaje y ventanas normativas.
+- Si una fecha viene con hora (`2026-05-04 00:00:00`), el frontend elimina la hora y muestra solo la fecha amigable.
+- Validacion realizada con DNI `94635370`: ya no aparece `00:00:00` y las fechas se ven como `02 may 2026`, `05 may 2026`, etc.
+
+### Fecha de nacimiento en incumplidos
+- Los registros incumplidos ahora incluyen `fec_Nac` desde el backend.
+- La tabla de `Incumplidos por mes de evaluacion` muestra la columna `Nacimiento` con formato `dd mmm yyyy`.
+- La descarga Excel `incumplidos.xlsx` incluye la columna `Fecha de nacimiento`.
+- Validacion realizada: la tabla muestra nacimientos como `02 may 2026` y el Excel se genera correctamente.
