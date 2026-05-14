@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { Activity, BarChart3, Baby, DatabaseZap, Search, Settings2, ShieldCheck, SlidersHorizontal } from 'lucide-react';
-import ConfigView, { ALL_PROVINCES, DEFAULT_TARGET_COVERAGE } from './ConfigView';
-import Dashboard from './Dashboard';
-import DataUploadView from './DataUploadView';
-import SearchDNI from './SearchDNI';
+import IndicatorSelector from './components/IndicatorSelector';
+import indicators, { indicatorList } from './indicators/registry';
+import ConfigView, { ALL_PROVINCES, DEFAULT_TARGET_COVERAGE } from './pages/ConfigView';
+import Dashboard from './pages/IndicatorDashboard';
+import DataUploadView from './pages/DataUploadView';
+import SearchDNI from './pages/RecordSearch';
 
 const views = {
   search: {
     title: 'Busqueda por DNI',
-    description: 'Consulta individual del recien nacido y estado del paquete MC-03.',
+    description: 'Consulta individual y estado del paquete del indicador seleccionado.',
     icon: Search,
   },
   dashboard: {
@@ -23,7 +25,7 @@ const views = {
   },
   data: {
     title: 'Carga de datos',
-    description: 'Carga, valida y activa el nuevo Excel mensual del indicador MC-03.',
+    description: 'Carga, valida y activa el Excel operativo del indicador seleccionado.',
     icon: DatabaseZap,
   },
 };
@@ -46,12 +48,20 @@ function NavButton({ active, children, icon: Icon, onClick }) {
 }
 
 function App() {
+  const [selectedIndicator, setSelectedIndicator] = useState('mc03');
   const [activeView, setActiveView] = useState('search');
   const [selectedProvince, setSelectedProvince] = useState('ABANCAY');
   const [targetCoverage, setTargetCoverage] = useState(DEFAULT_TARGET_COVERAGE);
+  const activeIndicator = indicators[selectedIndicator];
   const currentView = views[activeView];
   const CurrentIcon = currentView.icon;
   const activeFilterLabel = selectedProvince === ALL_PROVINCES ? 'Todos los datos' : selectedProvince;
+
+  const handleIndicatorChange = (nextIndicator) => {
+    setSelectedIndicator(nextIndicator);
+    setSelectedProvince(indicators[nextIndicator].defaultProvince);
+    setTargetCoverage(indicators[nextIndicator].defaultTarget);
+  };
 
   return (
     <div className="min-h-screen overflow-hidden bg-clinic-page px-4 py-6 text-clinic-ink sm:px-6 lg:py-8">
@@ -74,12 +84,15 @@ function App() {
                 </span>
                 <div>
                   <h1 className="text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl">
-                    MC-03 Seguimiento Neonatal
+                    {activeIndicator.title}
                   </h1>
-                  <p className="mt-2 text-sm leading-6 text-white/75 sm:text-base">{currentView.description}</p>
+                  <p className="mt-2 text-sm leading-6 text-white/75 sm:text-base">
+                    {activeIndicator.description} {currentView.description}
+                  </p>
                 </div>
               </div>
               <div className="mt-5 flex flex-wrap gap-3">
+                <IndicatorSelector indicators={indicatorList} value={selectedIndicator} onChange={handleIndicatorChange} />
                 <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white/75">
                   <Activity className="h-4 w-4 text-clinic-mint" />
                   Filtro activo: <span className="text-white">{activeFilterLabel}</span>
@@ -115,19 +128,20 @@ function App() {
             </span>
             <h2 className="text-2xl font-bold text-clinic-ink">{currentView.title}</h2>
           </div>
-          {activeView === 'search' && <SearchDNI selectedProvince={selectedProvince} />}
+          {activeView === 'search' && <SearchDNI selectedProvince={selectedProvince} selectedIndicator={selectedIndicator} />}
           {activeView === 'dashboard' && (
-            <Dashboard selectedProvince={selectedProvince} targetCoverage={targetCoverage} />
+            <Dashboard selectedProvince={selectedProvince} targetCoverage={targetCoverage} selectedIndicator={selectedIndicator} />
           )}
           {activeView === 'config' && (
             <ConfigView
+              selectedIndicator={selectedIndicator}
               selectedProvince={selectedProvince}
               onProvinceChange={setSelectedProvince}
               targetCoverage={targetCoverage}
               onTargetCoverageChange={setTargetCoverage}
             />
           )}
-          {activeView === 'data' && <DataUploadView />}
+          {activeView === 'data' && <DataUploadView selectedIndicator={selectedIndicator} />}
         </main>
       </div>
     </div>

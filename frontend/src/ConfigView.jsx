@@ -19,7 +19,7 @@ function ConfigCard({ icon: Icon, title, children }) {
   );
 }
 
-function ConfigView({ selectedProvince, onProvinceChange, targetCoverage, onTargetCoverageChange }) {
+function ConfigView({ selectedIndicator, selectedProvince, onProvinceChange, targetCoverage, onTargetCoverageChange }) {
   const [options, setOptions] = useState({
     provinces: [],
     default_province: 'ABANCAY',
@@ -31,15 +31,16 @@ function ConfigView({ selectedProvince, onProvinceChange, targetCoverage, onTarg
 
   useEffect(() => {
     axios
-      .get('/api/config/options')
+      .get(`/api/config/options?indicator=${selectedIndicator}`)
       .then((response) => {
         setOptions(response.data);
+        onProvinceChange(response.data.default_province ?? 'ABANCAY');
         onTargetCoverageChange(response.data.default_target_coverage ?? DEFAULT_TARGET_COVERAGE);
       })
       .catch((err) => {
         setError(err.message);
       });
-  }, []);
+  }, [selectedIndicator]);
 
   const isAllData = selectedProvince === ALL_PROVINCES;
 
@@ -114,7 +115,7 @@ function ConfigView({ selectedProvince, onProvinceChange, targetCoverage, onTarg
             <p className="mt-2 text-sm leading-6 text-clinic-muted">
               {isAllData
                 ? 'Se calculara el indicador usando todas las provincias disponibles en el archivo.'
-                : 'Se calculara el indicador solo con registros cuya columna Desc_prov coincida con la provincia seleccionada.'}
+                : `Se calculara el indicador solo con registros cuya columna territorial coincida con ${selectedProvince}.`}
             </p>
           </ConfigCard>
 
@@ -148,8 +149,8 @@ function ConfigView({ selectedProvince, onProvinceChange, targetCoverage, onTarg
 
           <ConfigCard icon={Info} title="Criterios de evaluacion">
             <div className="space-y-2 text-sm leading-6 text-clinic-muted">
-              <p>Incluye registros con <span className="font-bold text-clinic-ink">Obs_Eval</span>: {options.exclusion_criteria.included_obs_eval ?? 'Evaluado'}.</p>
-              <p>Excluye registros con <span className="font-bold text-clinic-ink">Obs_Eval</span>: {options.exclusion_criteria.excluded_obs_eval ?? 'No_Evaluado'}.</p>
+              <p>Incluye: <span className="font-bold text-clinic-ink">{options.exclusion_criteria.included_obs_eval ?? options.exclusion_criteria.included_population ?? 'Evaluado'}</span>.</p>
+              <p>Excluye: <span className="font-bold text-clinic-ink">{options.exclusion_criteria.excluded_obs_eval ?? options.exclusion_criteria.excluded_population ?? 'No_Evaluado'}</span>.</p>
               <p>
                 El peso al nacer y la edad gestacional ya vienen evaluados en esa columna del archivo.
               </p>

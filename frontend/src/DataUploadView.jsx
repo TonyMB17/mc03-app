@@ -12,12 +12,11 @@ import {
   UploadCloud,
   XCircle,
 } from 'lucide-react';
+import indicators from './indicators/registry';
+import { formatPeruDate } from './utils/dates';
 
 function formatDate(value) {
-  if (!value) return '-';
-  const date = new Date(String(value).replace(' ', 'T'));
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('es-PE', { year: 'numeric', month: 'short', day: '2-digit' });
+  return formatPeruDate(value);
 }
 
 function formatDateTime(value) {
@@ -31,6 +30,25 @@ function formatFileSize(value) {
   if (!value) return '-';
   if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function titleCaseKey(value) {
+  return String(value || '')
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatCountItems(counts) {
+  return Object.entries(counts ?? {}).map(([key, value]) => `${titleCaseKey(key)}: ${value}`);
+}
+
+function formatComponentItems(counts) {
+  return Object.entries(counts ?? {}).map(([component, values]) => {
+    const detail = Object.entries(values ?? {})
+      .map(([key, value]) => `${titleCaseKey(key)} ${value}`)
+      .join(' / ');
+    return detail ? `${component}: ${detail}` : component;
+  });
 }
 
 function InfoCell({ label, value, icon: Icon }) {
@@ -128,33 +146,58 @@ function ChipGroup({ title, items, emptyText = 'Sin datos detectados' }) {
   );
 }
 
-function DataUploadView() {
+function DataUploadView({ selectedIndicator }) {
   const [currentData, setCurrentData] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
+  const activeIndicator = indicators[selectedIndicator] ?? indicators.mc03;
 
   const loadCurrentData = () => {
     axios
-      .get('/api/data/current')
+      .get(`/api/data/current?indicator=${selectedIndicator}`)
       .then((response) => setCurrentData(response.data))
       .catch((err) => setError(err.response?.data?.detail || err.message));
   };
 
   useEffect(() => {
+    setSelectedFile(null);
+    setPreview(null);
+    setError(null);
+    setStatus('idle');
     loadCurrentData();
-  }, []);
+  }, [selectedIndicator]);
 
   const previewSummary = preview?.summary;
   const canActivate = preview?.valid && preview?.upload_id && status !== 'activating';
   const currentSummary = currentData?.summary;
   const selectedFileLabel = selectedFile ? `${selectedFile.name} (${formatFileSize(selectedFile.size)})` : 'Ningun archivo seleccionado';
 
-  const obsEvalPreview = useMemo(() => {
-    const counts = previewSummary?.obs_eval_counts ?? {};
-    return Object.entries(counts).map(([key, value]) => `${key}: ${value}`);
-  }, [previewSummary]);
+  const statusPreview = useMemo(
+    () => formatCountItems(previewSummary?.status_counts ?? previewSummary?.obs_eval_counts),
+    [previewSummary],
+  );
+  const denominatorPreview = useMemo(
+    () => formatCountItems(previewSummary?.denominator_counts),
+    [previewSummary],
+  );
+  const componentPreview = useMemo(
+    () => formatComponentItems(previewSummary?.component_counts),
+    [previewSummary],
+  );
+  const insurancePreview = useMemo(
+    () => formatCountItems(previewSummary?.insurance_counts),
+    [previewSummary],
+  );
+  const missingColumnsPreview = useMemo(
+    () => previewSummary?.missing_columns ?? [],
+    [previewSummary],
+  );
+  const omittedColumnsPreview = useMemo(
+    () => previewSummary?.omitted_columns ?? [],
+    [previewSummary],
+  );
 
   const stepState = {
     upload: preview ? 'done' : selectedFile ? 'active' : 'pending',
@@ -179,7 +222,7 @@ function DataUploadView() {
     formData.append('file', selectedFile);
 
     try {
-      const response = await axios.post('/api/data/upload-preview', formData, {
+      const response = await axios.post(`/api/data/upload-preview?indicator=${selectedIndicator}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setPreview(response.data);
@@ -196,7 +239,7 @@ function DataUploadView() {
     setError(null);
 
     try {
-      const response = await axios.post('/api/data/activate', { upload_id: preview.upload_id });
+      const response = await axios.post(`/api/data/activate?indicator=${selectedIndicator}`, { upload_id: preview.upload_id });
       setCurrentData(response.data);
       setStatus('activated');
       setSelectedFile(null);
@@ -232,8 +275,8 @@ function DataUploadView() {
         <div className="grid gap-3 lg:grid-cols-4">
           <SectionTitleCard
             eyebrow="Carga del archivo"
-            title="Nuevo Excel MC-03"
-            description="Selecciona, valida y activa un `.xlsx` con hoja `Detalle_Ate`."
+            title={`Nuevo Excel ${activeIndicator.shortName}`}
+            description={`Selecciona, valida y activa un .xlsx para ${activeIndicator.title}.`}
             icon={UploadCloud}
           />
           <StatusRow number="1" title="Seleccionar archivo" description="Carga el Excel mensual." state={stepState.upload} />
@@ -335,10 +378,27 @@ function DataUploadView() {
                   <InfoCell label="Tamanio" value={formatFileSize(previewSummary?.file_size_bytes)} icon={FileCheck2} />
               </div>
 
+              <div className="grid gap-3 sm:grid-cols-3">
+                <InfoCell label="Hoja esperada" value={previewSummary?.sheet_name ?? 'Detalle_Ate'} icon={FileSpreadsheet} />
+                <InfoCell label="Celda de corte" value={previewSummary?.cutoff_cell ?? '-'} icon={CalendarDays} />
+                <InfoCell label="Fila de encabezados" value={previewSummary?.header_row ?? '-'} icon={FileCheck2} />
+              </div>
+
               <div className="grid gap-3 xl:grid-cols-3">
                 <ChipGroup title="Meses encontrados" items={previewSummary?.months ?? []} />
                 <ChipGroup title="Provincias encontradas" items={previewSummary?.provinces ?? []} />
-                <ChipGroup title="Obs_Eval" items={obsEvalPreview} />
+                <ChipGroup title={previewSummary?.validation_label ?? 'Estado'} items={statusPreview} />
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-3">
+                <ChipGroup title="Tipo de seguro" items={insurancePreview} />
+                <ChipGroup title="Denominador y exclusiones" items={denominatorPreview} />
+                <ChipGroup title="Componentes evaluados" items={componentPreview} />
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-2">
+                <ChipGroup title="Columnas faltantes" items={missingColumnsPreview} emptyText="No faltan columnas obligatorias" />
+                <ChipGroup title="Columnas presentes no evaluadas ahora" items={omittedColumnsPreview} emptyText="Sin columnas omitidas detectadas" />
               </div>
             </div>
           )}

@@ -4,11 +4,13 @@ import {
   AlertTriangle,
   Baby,
   CalendarClock,
+  ChevronDown,
   CheckCircle2,
   ClipboardList,
   Hospital,
   IdCard,
   Loader2,
+  PackageCheck,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -18,13 +20,16 @@ import {
   UserRound,
   XCircle,
 } from 'lucide-react';
+import { formatShortDate } from './utils/dates';
 
 const statusStyles = {
   cumple: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
   advertencia: 'bg-amber-50 text-amber-700 ring-amber-200',
   programado: 'bg-blue-50 text-blue-700 ring-blue-200',
   incumplimiento: 'bg-red-50 text-red-700 ring-red-200',
+  incumplimiento_fuera_plazo: 'bg-red-50 text-red-700 ring-red-200',
   pendiente: 'bg-slate-100 text-clinic-muted ring-slate-200',
+  pendiente_en_plazo: 'bg-amber-50 text-amber-700 ring-amber-200',
 };
 
 const statusLabels = {
@@ -32,7 +37,9 @@ const statusLabels = {
   advertencia: 'En ventana',
   programado: 'Programado',
   incumplimiento: 'Incumple',
+  incumplimiento_fuera_plazo: 'Fuera de plazo',
   pendiente: 'Pendiente',
+  pendiente_en_plazo: 'Pendiente en plazo',
 };
 
 const statusIcons = {
@@ -40,7 +47,23 @@ const statusIcons = {
   advertencia: AlertTriangle,
   programado: CalendarClock,
   incumplimiento: XCircle,
+  incumplimiento_fuera_plazo: XCircle,
   pendiente: Timer,
+  pendiente_en_plazo: AlertTriangle,
+};
+
+const componentLabels = {
+  BCG: 'BCG',
+  HVB: 'HVB',
+  cred_rn: 'CRED recien nacido',
+  cred_1_mas: 'CRED 1 mes a mas',
+  neumococo: 'Vacuna neumococo',
+  rotavirus: 'Vacuna rotavirus',
+  antipolio: 'Vacuna antipolio',
+  pentavalente: 'Vacuna pentavalente',
+  hierro_menor_6m: 'Hierro menor de 6 meses',
+  hierro_mayor_6m: 'Hierro mayor de 6 meses',
+  hemoglobina: 'Dosaje de hemoglobina',
 };
 
 function StatusPill({ estado = 'pendiente' }) {
@@ -54,14 +77,7 @@ function StatusPill({ estado = 'pendiente' }) {
 }
 
 function formatDate(value) {
-  if (!value) return '-';
-  const normalizedValue = String(value).replace(' ', 'T');
-  const date = new Date(normalizedValue);
-  if (Number.isNaN(date.getTime())) return value;
-
-  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${day} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  return formatShortDate(value);
 }
 
 function DetailMessage({ item }) {
@@ -73,6 +89,37 @@ function DetailMessage({ item }) {
         Ventana: {formatDate(item.fecha_inicio)} - {formatDate(item.fecha_limite)}
       </p>
     </div>
+  );
+}
+
+function DoseDetails({ doses = [] }) {
+  if (!doses.length) return null;
+
+  return (
+    <details className="mt-3 rounded-xl border border-clinic-border bg-white/80 p-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-clinic-ink">
+        <span>{doses.length} dosis registrada{doses.length === 1 ? '' : 's'}</span>
+        <ChevronDown className="h-4 w-4 text-clinic-violet" />
+      </summary>
+      <div className="mt-3 space-y-2">
+        {doses.map((dose) => (
+          <div key={`${dose.label}-${dose.fecha}-${dose.codigo}`} className="grid gap-2 rounded-lg bg-clinic-mint/30 p-3 text-xs text-clinic-muted sm:grid-cols-[0.7fr_1fr_0.8fr]">
+            <p>
+              <span className="block font-bold text-clinic-ink">{dose.label}</span>
+              {formatDate(dose.fecha)}
+            </p>
+            <p>
+              <span className="block font-bold text-clinic-ink">Codigo</span>
+              {dose.codigo || '-'}{dose.lab ? ` · LAB ${dose.lab}` : ''}
+            </p>
+            <p>
+              <span className="block font-bold text-clinic-ink">Edad</span>
+              {dose.edad_atencion_dias ?? '-'} dias
+            </p>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -99,11 +146,17 @@ function SectionTitle({ icon: Icon, title }) {
   );
 }
 
-function SearchDNI({ selectedProvince }) {
+function SearchDNI({ selectedProvince, selectedIndicator }) {
   const [dni, setDni] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const isMc02 = selectedIndicator === 'mc02';
+  const searchLabel = isMc02 ? 'DNI o CNV del niño' : 'DNI del recien nacido';
+  const packageTitle = isMc02 ? 'Paquete integrado MC-02' : 'Componentes del paquete';
+  const packageIcon = isMc02 ? PackageCheck : Syringe;
+  const finalCompleteText = isMc02 ? 'Paquete integrado completo' : 'Paquete completo';
+  const finalIncompleteText = isMc02 ? 'Paquete integrado incompleto, requiere seguimiento' : 'Paquete incompleto, requiere intervencion';
 
   const handleSearch = async (event) => {
     event.preventDefault();
@@ -117,7 +170,7 @@ function SearchDNI({ selectedProvince }) {
     setResult(null);
 
     try {
-      const params = new URLSearchParams({ province: selectedProvince });
+      const params = new URLSearchParams({ province: selectedProvince, indicator: selectedIndicator });
       const response = await axios.get(`/api/search/dni/${dni.trim()}?${params.toString()}`);
       setResult(response.data);
     } catch (err) {
@@ -132,7 +185,7 @@ function SearchDNI({ selectedProvince }) {
       <form onSubmit={handleSearch} className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <label htmlFor="dni" className="text-sm font-bold uppercase tracking-[0.18em] text-clinic-muted">
-            DNI del recien nacido
+            {searchLabel}
           </label>
           <div className="relative mt-2">
             <IdCard className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-clinic-violet" />
@@ -193,21 +246,24 @@ function SearchDNI({ selectedProvince }) {
           </article>
 
           <article className="inner-panel p-5">
-            <SectionTitle icon={Syringe} title="Vacunas" />
+            <SectionTitle icon={packageIcon} title={packageTitle} />
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              {['BCG', 'HVB'].map((vacuna) => {
-                const data = result.vacunas[vacuna];
+              {Object.entries(result.vacunas).map(([vacuna, data]) => {
+                const label = componentLabels[vacuna] ?? vacuna;
                 return (
                   <div key={vacuna} className="rounded-xl border border-clinic-violet/10 bg-white/70 p-4 transition hover:-translate-y-0.5 hover:shadow-soft">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="font-bold text-clinic-ink">{vacuna}</p>
+                        <p className="font-bold text-clinic-ink">{label}</p>
                         <p className="text-sm text-clinic-muted">Codigo: {data.codigo}</p>
-                        <p className="text-sm text-clinic-muted">Fecha: {formatDate(data.fecha)}</p>
-                        <p className="text-sm text-clinic-muted">Edad: {data.edad_atencion_dias ?? '-'} dias</p>
+                        <p className="text-sm text-clinic-muted">Dosis registradas: {data.dosis?.length ?? 0}</p>
+                        <p className="text-sm text-clinic-muted">Ultima fecha: {formatDate(data.fecha)}</p>
+                        <p className="text-sm text-clinic-muted">EESS atencion: {data.establecimiento_atencion || '-'}</p>
+                        <p className="text-sm text-clinic-muted">Profesional: {data.profesional || '-'}</p>
                       </div>
                       <StatusPill estado={data.estado} />
                     </div>
+                    <DoseDetails doses={data.dosis} />
                     <DetailMessage item={data} />
                   </div>
                 );
@@ -215,36 +271,40 @@ function SearchDNI({ selectedProvince }) {
             </div>
           </article>
 
-          <article className="inner-panel p-5">
-            <SectionTitle icon={ClipboardList} title="Controles CRED" />
-            <div className="mt-4 grid gap-4 xl:grid-cols-3">
-              {result.cred_controls.map((cred) => (
-                <div key={cred.numero} className="rounded-xl border border-clinic-violet/10 bg-white/70 p-4 transition hover:-translate-y-0.5 hover:shadow-soft">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-bold text-clinic-ink">CRED {cred.numero}</p>
-                      <p className="mt-2 text-sm text-clinic-muted">Fecha: {formatDate(cred.fecha)}</p>
-                      <p className="text-sm text-clinic-muted">Edad: {cred.edad_atencion_dias ?? '-'} dias</p>
+          {!isMc02 && (
+            <article className="inner-panel p-5">
+              <SectionTitle icon={ClipboardList} title="Controles CRED" />
+              <div className="mt-4 grid gap-4 xl:grid-cols-3">
+                {result.cred_controls.map((cred) => (
+                  <div key={cred.numero} className="rounded-xl border border-clinic-violet/10 bg-white/70 p-4 transition hover:-translate-y-0.5 hover:shadow-soft">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-bold text-clinic-ink">CRED {cred.numero}</p>
+                        <p className="mt-2 text-sm text-clinic-muted">Fecha: {formatDate(cred.fecha)}</p>
+                        <p className="text-sm text-clinic-muted">Edad: {cred.edad_atencion_dias ?? '-'} dias</p>
+                      </div>
+                      <StatusPill estado={cred.estado} />
                     </div>
-                    <StatusPill estado={cred.estado} />
+                    <DetailMessage item={cred} />
                   </div>
-                  <DetailMessage item={cred} />
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="inner-panel p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <SectionTitle icon={TestTube2} title="Tamizaje neonatal" />
-                <p className="mt-4 text-sm text-clinic-muted">Fecha: {formatDate(result.tamizaje.fecha)}</p>
-                <p className="text-sm text-clinic-muted">Edad: {result.tamizaje.edad_atencion_dias ?? '-'} dias</p>
+                ))}
               </div>
-              <StatusPill estado={result.tamizaje.estado} />
-            </div>
-            <DetailMessage item={result.tamizaje} />
-          </article>
+            </article>
+          )}
+
+          {!isMc02 && (
+            <article className="inner-panel p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <SectionTitle icon={TestTube2} title="Tamizaje neonatal" />
+                  <p className="mt-4 text-sm text-clinic-muted">Fecha: {formatDate(result.tamizaje.fecha)}</p>
+                  <p className="text-sm text-clinic-muted">Edad: {result.tamizaje.edad_atencion_dias ?? '-'} dias</p>
+                </div>
+                <StatusPill estado={result.tamizaje.estado} />
+              </div>
+              <DetailMessage item={result.tamizaje} />
+            </article>
+          )}
 
           <article className={`rounded-xl border p-5 ${result.paquete_completo ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
             <h3 className={`inline-flex items-center gap-2 text-lg font-bold ${result.paquete_completo ? 'text-emerald-700' : 'text-red-700'}`}>
@@ -252,7 +312,7 @@ function SearchDNI({ selectedProvince }) {
               Estado del paquete
             </h3>
             <p className={`mt-2 text-sm font-semibold ${result.paquete_completo ? 'text-emerald-700' : 'text-red-700'}`}>
-              {result.paquete_completo ? 'Paquete completo' : 'Paquete incompleto, requiere intervencion'}
+              {result.paquete_completo ? finalCompleteText : finalIncompleteText}
             </p>
           </article>
         </div>

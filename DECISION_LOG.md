@@ -173,6 +173,21 @@ npm run dev
 - La descarga Excel `incumplidos.xlsx` incluye la columna `Fecha de nacimiento`.
 - Validacion realizada: la tabla muestra nacimientos como `02 may 2026` y el Excel se genera correctamente.
 
+### Documento general de plataforma multiindicador
+- Se creo `docs/ARQUITECTURA_PLATAFORMA_INDICADORES.md` como guia madre para evolucionar el sistema MC-03 hacia una plataforma multiindicador.
+- El documento define objetivo, principios de diseno, estructura backend/frontend, contrato comun de indicadores, flujo de carga Excel, documentacion por indicador, endpoints futuros y fases de desarrollo.
+- Se establecio que cada indicador tendra su propio `.md` con criterios especificos de ficha tecnica.
+- La recomendacion inmediata queda registrada: modularizar MC-03 como primer indicador base antes de incorporar otros indicadores.
+
+### Fase 1 - Modularizacion inicial de MC-03
+- Se creo la estructura `backend/indicators/mc03/` para aislar la logica especifica del indicador MC-03.
+- Se movio la configuracion MC-03 a `backend/indicators/mc03/config.py`.
+- Se movio el procesamiento MC-03 a `backend/indicators/mc03/processor.py`.
+- `backend/config.py` y `backend/services.py` quedaron como fachadas de compatibilidad para mantener activos los endpoints existentes sin cambiar comportamiento.
+- Se agrego `backend/indicators/registry.py` con el primer registro disponible: `mc03`.
+- Se agrego `backend/indicators/mc03/README_MC03.md` y el documento especifico `docs/indicadores/MC03_PAQUETE_RECIEN_NACIDO.md`.
+- Validacion realizada: `python -m compileall backend` OK, el registro de indicadores reconoce `mc03`, y `/api/report/summary?province=ABANCAY&target=70.7` mantiene mayo con denominador 113, numerador 47, cobertura 41.59 y 188 incumplidos.
+
 ### Carga y activacion de nuevo Excel
 - Se agrego la vista `Carga de datos` para subir un nuevo archivo `.xlsx`, validar su estructura y activarlo como fuente de datos del sistema.
 - El backend ahora expone:
@@ -215,3 +230,115 @@ npm run dev
 - La seccion `Carga del archivo` ahora se muestra como una card junto a los tres pasos del flujo.
 - Se agrego un componente local `SectionTitleCard` para unificar encabezados operativos en formato tarjeta.
 - Validacion realizada: `npm.cmd run build` OK.
+
+### Documento especifico MC-02
+- Se examino la ficha tecnica MC-02.01 para iniciar la fase 2 con el nuevo indicador.
+- Se copio el PDF fuente a `docs/MC-02_FT_PROCESAMIENTO_GR_241025.pdf` para mantener la referencia normativa dentro del proyecto.
+- Se creo `docs/indicadores/MC02_PAQUETE_INTEGRADO_MENORES_12_MESES.md` como README especifico del indicador MC-02.
+- El documento registra definicion, objetivo, formula, denominador, numerador, exclusiones, componentes del paquete integrado y reglas operativas principales.
+- Componentes documentados: vacunas por edad, entrega de hierro o micronutrientes, dosaje de hemoglobina y DNI emitido hasta los 30 dias de nacido.
+- Pendientes para implementacion: confirmar la meta numerica, validar las tablas extraidas contra el PDF original y mapear columnas cuando se reciba el Excel operativo de MC-02.
+
+### Analisis del Excel operativo MC-02
+- Se analizo el archivo operativo `MC 02_FT MC_02 _INFANTIL.xlsx`.
+- La hoja principal es `Detalle_Ate`, la fecha de corte esta en `D9`, y los encabezados estan en la fila `10`.
+- El archivo revisado tiene corte `11 may 2026`, `5,789` filas y `375` columnas en `Detalle_Ate`.
+- La meta operativa se identifico en las hojas resumen como `0.809`, por lo que MC-02 debe usar `80.9%` por defecto.
+- Se actualizaron las columnas requeridas en `docs/indicadores/MC02_PAQUETE_INTEGRADO_MENORES_12_MESES.md`.
+- Se identifico que `Estado` marca cumplimiento general, `Registros` marca poblacion evaluada y `Obs_General` contiene el estado textual `Cumple` / `No_Cumple`.
+- Se identificaron marcas precalculadas por componente: CRED, neumococo, rotavirus, antipolio, pentavalente, hierro, anemia y dosaje de hemoglobina.
+- Decision tecnica: la primera implementacion de MC-02 debe aprovechar las marcas precalculadas del Excel y usar las columnas de detalle para auditoria y mensajes explicativos.
+
+### Primera vista funcional MC-02
+- Se agrego el modulo `backend/indicators/mc02/` con lectura de `Detalle_Ate`, fecha de corte en `D9` y encabezados en fila `10`.
+- Se copio el Excel operativo a `data_samples/MC 02_FT MC_02 _INFANTIL.xlsx`.
+- MC-02 quedo registrado en `backend/indicators/registry.py`.
+- La API ahora acepta `indicator=mc02` en configuracion, resumen, incumplidos, descarga y busqueda por DNI/CNV.
+- Para MC-02 se usa `provincia = ABANCAY` como filtro territorial por defecto.
+- Denominador operativo: `Registros = 1`; numerador operativo: `Estado = 1`; meta por defecto: `80.9%`.
+- El frontend incorpora selector de indicador `MC-03` / `MC-02` y propaga el indicador activo a busqueda, dashboard, configuracion y carga de datos.
+- La busqueda individual muestra componentes dinamicos del paquete, no solo vacunas MC-03.
+- Validacion realizada: `python -m compileall backend` OK, `npm.cmd run build` OK, API MC-02 con `TestClient` OK, y verificacion visual local del selector MC-02 y dashboard OK.
+
+### Normalizacion de arquitectura multiindicador
+- Se leyo `docs/ARQUITECTURA_PLATAFORMA_INDICADORES.md` y se alineo la estructura inicial del proyecto con la propuesta.
+- Se creo `backend/core/` con utilidades compartidas para fechas, lectura Excel y contrato base de indicadores.
+- El registro de indicadores ahora usa `IndicatorDefinition.from_module(...)`, leyendo codigo, nombre, meta por defecto y provincia por defecto desde cada modulo.
+- Las carpetas `backend/indicators/mc02/` y `backend/indicators/mc03/` quedaron con el mismo molde: `config.py`, `rules.py`, `schema.py`, `processor.py` y README.
+- MC-02 quedo conectado a utilidades comunes de Excel y fechas, manteniendo sus reglas en `config.py` y `rules.py`.
+- Se creo la estructura frontend `components/`, `indicators/`, `pages/` y `utils/`.
+- Se extrajeron componentes reutilizables: `IndicatorSelector` y `MetricCard`.
+- Se creo `frontend/src/indicators/registry.js` para centralizar metadatos de MC-02 y MC-03.
+- Se creo `frontend/src/utils/dates.js` para estandarizar formato `dd mmm yyyy` evitando desfases por zona horaria.
+- Validacion realizada: `python -m compileall backend` OK, `npm.cmd run build` OK y carga MC-02 mantiene corte `2026-05-11` como tipo `date`.
+
+### Ajuste operativo MC-02 sin CRED ni DNI
+- Se actualizo `backend/indicators/mc02/processor.py` para usar las columnas declaradas en `backend/indicators/mc02/config.py`.
+- Se omitieron los bloques CRED del calculo MC-02 actual, aunque el Excel los conserva para uso futuro.
+- Se omitio el criterio de DNI emitido hasta los 30 dias porque no corresponde al area salud en esta implementacion local.
+- El numerador MC-02 ya no depende directamente de `Estado`; ahora se recalcula con componentes activos: neumococo, rotavirus, antipolio, pentavalente, hierro menor de 6 meses, hierro mayor de 6 meses y dosaje de hemoglobina.
+- `Estado` queda como columna de referencia operativa del Excel, pero no como fuente unica del cumplimiento en la plataforma.
+- La validacion identifica columnas CRED presentes como omitidas, sin exigirlas para el calculo actual.
+- Se actualizo `docs/indicadores/MC02_PAQUETE_INTEGRADO_MENORES_12_MESES.md` con esta decision.
+- Validacion realizada: API MC-02 OK con 12 meses, 68 incumplidos para ABANCAY y meta 80.9%; la busqueda individual muestra solo los componentes activos; `npm.cmd run build` OK.
+
+### Configuracion formal MC-02
+- Se agregaron `CODIGOS_ESTANDAR` y `REGLAS_NEGOCIO` en `backend/indicators/mc02/config.py`, siguiendo el estilo de MC-03.
+- `CODIGOS_ESTANDAR` incluye codigos de neumococo, rotavirus, antipolio, pentavalente, hemoglobina, anemia, hierro, multimicronutrientes y telemedicina excluida.
+- `REGLAS_NEGOCIO` centraliza meta, provincia por defecto, columna de denominador, columna de numerador operativo, columna de mes, columna de provincia, seguros incluidos y criterios de exclusion.
+- Se dejo explicito que el tipo de seguro MC-02 se lee desde `DATOS_GENERALES -> Obs_Niño`.
+- `backend/indicators/mc02/rules.py` ahora deriva sus constantes desde `REGLAS_NEGOCIO`, evitando duplicar configuracion.
+- Validacion realizada: `python -m compileall backend` OK; el Excel MC-02 valida correctamente; opciones de configuracion reportan `Obs_Niño` como columna de seguro; el resumen ABANCAY mantiene 12 meses y 68 incumplidos.
+
+### Revision de definicion MC-02 y entrega de hierro
+- Se volvio a analizar `docs/MC-02_FT_PROCESAMIENTO_GR_241025.pdf` para precisar la definicion del indicador.
+- Se confirmo que el paquete tecnico incluye vacunas basicas, entrega de hierro, dosaje de hemoglobina y DNI emitido hasta 30 dias.
+- Se mantiene la decision local de omitir DNI por no corresponder al area salud.
+- Se documento en `backend/indicators/mc02/README_MC02.md` que CRED queda fuera del calculo actual y se conserva solo como informacion futura/auditoria.
+- Se amplio la seccion de entrega de hierro con codigos, exclusiones, reglas transversales, suplementacion preventiva de 4 meses, tratamiento de anemia, suplementacion preventiva de 6 a 11 meses y esquemas con micronutrientes.
+- Se dejo indicado que la implementacion actual usa marcas precalculadas del Excel, pero que el recalculo futuro desde atenciones crudas debe convertir esas reglas en funciones por ruta.
+
+### Exclusiones de denominador MC-02
+- Se agrego en `backend/indicators/mc02/config.py` que las exclusiones se evaluan con `Peso` y `Edad_Gestacional`.
+- Bajo peso se define como `Peso < 2500` y prematuridad como `Edad_Gestacional < 37`.
+- Las celdas vacias de `Peso` o `Edad_Gestacional` permanecen en el denominador porque no hay evidencia suficiente para excluirlas.
+- El denominador MC-02 parte de `Registros = 1`, filtra `provincia = ABANCAY`, y luego excluye solo bajo peso o prematuridad con dato conocido.
+- Se dejo documentado en `backend/indicators/mc02/README_MC02.md` que `Obs_Niño` es el tipo de seguro y `provincia` debe ser `ABANCAY`.
+- Validacion con Excel operativo: ABANCAY tiene 190 registros base, 13 excluidos por bajo peso/prematuridad conocida, 177 registros finales en denominador; 4 vacios de peso/edad gestacional permanecen incluidos.
+- Validacion realizada: `python -m compileall backend` OK y `npm.cmd run build` OK.
+
+### Ventanas y responsables de atencion MC-02
+- Se agregaron ventanas normativas en `REGLAS_NEGOCIO["VENTANAS_ATENCION"]` para neumococo, rotavirus, antipolio, pentavalente, hierro menor de 6 meses, hierro mayor de 6 meses y dosaje de hemoglobina.
+- Los motivos de incumplimiento ahora diferencian entre atencion no registrada, atencion fuera de criterio y componente aun no exigible por edad.
+- Si una ventana indica que un componente aun no es exigible, ese componente se considera programado y no genera incumplimiento.
+- Se ampliaron los detalles de busqueda por DNI para mostrar establecimiento de atencion, profesional, LAB, lote y ventana normativa.
+- Se ampliaron los registros de incumplidos y el Excel exportado con componente observado, fecha de atencion, edad de atencion, EESS de atencion y profesional.
+- El Excel MC-02 revisado no trae columnas `Prof_*` para vacunas, hierro ni hemoglobina; solo existen en CRED. Por eso los componentes activos muestran `No disponible en Excel` en profesional cuando no hay columna fuente.
+- Se documento esta limitacion en `backend/indicators/mc02/README_MC02.md`.
+- Validacion realizada: API resumen MC-02 OK, busqueda por DNI OK, descarga Excel de incumplidos OK y `npm.cmd run build` OK.
+
+### Carga de archivos por indicador
+- Se amplio el contrato de resumen de carga para incluir codigo/nombre de indicador, hoja, celda de corte, fila de encabezados, columnas faltantes, columnas omitidas, conteos de estado, denominador y componentes.
+- MC-02 valida su Excel con `Detalle_Ate`, corte en `D9`, encabezados en fila `10` y las columnas declaradas en `backend/indicators/mc02/config.py`.
+- La validacion MC-02 muestra conteos de `Estado`, `Obs_Niño`, poblacion base `Registros = 1`, exclusiones por peso/edad gestacional y componentes activos.
+- La vista de carga dejo de mostrar `Obs_Eval` como etiqueta fija y ahora usa la etiqueta de validacion de cada indicador.
+- La pantalla de carga muestra estructura esperada del archivo y diferencia columnas faltantes de columnas presentes que no se evaluan actualmente.
+
+### Seguimiento MC-02 por cohorte de nacimiento
+- Se confirmo que el campo mensual MC-02 es `Mes_Nac`, interpretado como cohorte de nacimiento y no como mes de atencion.
+- El procesamiento MC-02 ahora calcula edad al corte con `Fec_Nac` y la fecha de corte del Excel; `Edad_Act(dia)` queda como respaldo.
+- Cada componente activo puede quedar como `programado`, `pendiente_en_plazo`, `cumple` o `incumplimiento_fuera_plazo`.
+- Los mensajes de busqueda e incumplidos informan proximo inicio de ventana, fecha limite o incumplimiento fuera de plazo segun corresponda.
+- El dashboard mantiene numerador y denominador agrupados por `Mes_Nac`, mostrando el avance acumulado de cada cohorte hasta la fecha de corte.
+
+### Correccion denominador MC-02 por tipo de seguro
+- Se corrigio `_is_in_denominator` para aplicar tambien el filtro de `Obs_Niño`.
+- Los tipos incluidos quedan como `SIS`, `NINGUNO`, `SIN SEGURO`, `SIN_SEGURO` y celda vacia.
+- Para la cohorte `Mes_Nac = 2026_5` en `ABANCAY`, el conteo pasa de 40 a 34 al excluir 5 registros `ESSALUD` y 1 registro `SANIDAD`.
+- El resumen de carga ahora reporta `seguros_incluidos` y `excluidos_tipo_seguro` dentro de `denominator_counts`.
+
+### Dosis desplegables en busqueda MC-02
+- Se separaron las dosis registradas de vacunas en el resultado de busqueda por DNI para MC-02.
+- El backend ahora entrega `dosis` por componente para neumococo, rotavirus, antipolio y pentavalente, con fecha, edad, codigo, LAB, lote y establecimiento cuando existe.
+- El frontend mantiene la tarjeta minimalista con estado del componente y agrega un detalle desplegable para revisar las dosis sin sobrecargar la pantalla.
+- Esta separacion aclara casos donde el componente agregado esta pendiente o fuera de plazo aunque una o mas dosis ya se hayan registrado.

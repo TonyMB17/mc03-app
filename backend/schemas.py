@@ -35,6 +35,11 @@ class OmisoItem(BaseModel):
     Des_MicroRed: str | None = None
     pre_CodigoRENAES: str | None = None
     Des_EESS: str | None = None
+    component: str | None = None
+    attention_date: str | None = None
+    attention_age_days: int | None = None
+    attention_facility: str | None = None
+    attention_professional: str | None = None
     reason: str
 
 
@@ -63,16 +68,28 @@ class FilterOptionsResponse(BaseModel):
 
 
 class DataFileSummary(BaseModel):
+    indicator_code: str | None = None
+    indicator_name: str | None = None
     filename: str | None = None
     original_name: str | None = None
     file_size_bytes: int | None = None
     uploaded_at: str | None = None
     activated_at: str | None = None
+    sheet_name: str | None = None
+    cutoff_cell: str | None = None
+    header_row: int | None = None
     cutoff_date: date | None = None
     total_rows: int | None = None
     total_columns: int | None = None
+    required_columns_count: int | None = None
+    missing_columns: List[str] = []
+    omitted_columns: List[str] = []
     provinces: List[str] = []
     months: List[str] = []
+    validation_label: str | None = None
+    status_counts: dict[str, int] = {}
+    denominator_counts: dict[str, int] = {}
+    component_counts: dict[str, dict[str, int]] = {}
     obs_eval_counts: dict[str, int] = {}
     insurance_counts: dict[str, int] = {}
 
@@ -118,8 +135,14 @@ class VacunaRecord(BaseModel):
     cumple: bool = False
     estado: str = "pendiente"
     mensaje: str | None = None
+    establecimiento_atencion: str | None = None
+    profesional: str | None = None
+    lab: str | None = None
+    lote: str | None = None
+    ventana_normativa: str | None = None
     fecha_inicio: date | None = None
     fecha_limite: date | None = None
+    dosis: List[dict[str, Any]] = []
 
 
 class CREDRecord(BaseModel):

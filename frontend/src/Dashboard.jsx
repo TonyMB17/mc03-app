@@ -15,6 +15,8 @@ import {
   UsersRound,
   XCircle,
 } from 'lucide-react';
+import MetricCard from './components/MetricCard';
+import { formatShortDate } from './utils/dates';
 
 const PAGE_SIZE = 10;
 
@@ -35,35 +37,12 @@ const semaphoreStyles = {
   },
 };
 
-function StatusCard({ title, value, icon: Icon, tone = 'lilac' }) {
-  const tones = {
-    lilac: 'from-clinic-lilac/70 to-white text-clinic-violet',
-    pink: 'from-clinic-cream to-white text-amber-700',
-    rose: 'from-clinic-mint to-white text-clinic-teal',
-    blue: 'from-clinic-mint to-white text-clinic-teal',
-  };
-
-  return (
-    <div className="panel group p-5 transition duration-200 hover:-translate-y-1 hover:shadow-lift">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-muted">{title}</h3>
-          <p className="mt-4 text-3xl font-bold text-clinic-ink">{value}</p>
-        </div>
-        <span className={`grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br ${tones[tone]} transition group-hover:scale-105`}>
-          <Icon className="h-6 w-6" />
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function PeriodBadge({ inVerificationPeriod, isCurrentEvaluationMonth = false }) {
+function PeriodBadge({ inVerificationPeriod, isCurrentEvaluationMonth = false, isMc02 = false }) {
   if (isCurrentEvaluationMonth) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-amber-800 ring-1 ring-amber-200">
         <CalendarDays className="h-3.5 w-3.5" />
-        Mes en evaluacion
+        {isMc02 ? 'Cohorte en evaluacion' : 'Mes en evaluacion'}
       </span>
     );
   }
@@ -102,6 +81,7 @@ function buildMonthKey(item) {
     setiembre: 9,
     octubre: 10,
     noviembre: 11,
+    diciembre: 12,
   }[item.month];
   return `${item.year}_${monthNumber}`;
 }
@@ -112,27 +92,25 @@ function buildMonthOrder(item) {
 }
 
 function formatDate(value) {
-  if (!value) return '-';
-  const normalizedValue = String(value).replace(' ', 'T');
-  const date = new Date(normalizedValue);
-  if (Number.isNaN(date.getTime())) return value;
-
-  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${day} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  return formatShortDate(value);
 }
 
-function Dashboard({ selectedProvince, targetCoverage }) {
+function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
   const [status, setStatus] = useState('cargando...');
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [page, setPage] = useState(1);
+  const isMc02 = selectedIndicator === 'mc02';
+  const periodLabel = isMc02 ? 'cohorte' : 'mes de evaluacion';
+  const periodLabelTitle = isMc02 ? 'Cohorte' : 'Mes';
+  const currentPeriodTitle = isMc02 ? 'Cohorte en evaluacion' : 'Mes en evaluacion';
+  const incumplidosTitle = isMc02 ? 'Incumplidos por cohorte de nacimiento' : 'Incumplidos por mes de evaluacion';
 
   useEffect(() => {
     setError(null);
     setStatus('cargando...');
-    const params = new URLSearchParams({ province: selectedProvince, target: targetCoverage });
+    const params = new URLSearchParams({ province: selectedProvince, target: targetCoverage, indicator: selectedIndicator });
     axios
       .get(`/api/report/summary?${params.toString()}`)
       .then((response) => {
@@ -143,7 +121,7 @@ function Dashboard({ selectedProvince, targetCoverage }) {
         setStatus('Error');
         setError(err.message);
       });
-  }, [selectedProvince, targetCoverage]);
+  }, [selectedProvince, targetCoverage, selectedIndicator]);
 
   useEffect(() => {
     if (!summary?.monthly?.length) return;
@@ -192,7 +170,7 @@ function Dashboard({ selectedProvince, targetCoverage }) {
   const paginatedIncumplidos = monthIncumplidos.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const displayStart = monthIncumplidos.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const displayEnd = Math.min(safePage * PAGE_SIZE, monthIncumplidos.length);
-  const downloadParams = new URLSearchParams({ province: selectedProvince, month: selectedMonth });
+  const downloadParams = new URLSearchParams({ province: selectedProvince, month: selectedMonth, indicator: selectedIndicator });
 
   const handleMonthChange = (event) => {
     setSelectedMonth(event.target.value);
@@ -202,10 +180,10 @@ function Dashboard({ selectedProvince, targetCoverage }) {
   return (
     <section className="space-y-6">
       <section className="grid gap-4 md:grid-cols-4">
-        <StatusCard title="Estado API" value={summary ? 'Conectado' : status} icon={summary ? CheckCircle2 : Loader2} tone="blue" />
-        <StatusCard title="Meta" value={`${activeTarget}%`} icon={Target} tone="lilac" />
-        <StatusCard title="Meses cumplidos" value={summary ? `${monthsMetThroughCurrent}/${monthsThroughCurrent.length}` : '-'} icon={TrendingUp} tone="pink" />
-        <StatusCard title="Incumplidos total" value={summary ? incumplidosCount : '-'} icon={UsersRound} tone="rose" />
+        <MetricCard title="Estado API" value={summary ? 'Conectado' : status} icon={summary ? CheckCircle2 : Loader2} tone="blue" />
+        <MetricCard title="Meta" value={`${activeTarget}%`} icon={Target} tone="lilac" />
+        <MetricCard title="Meses cumplidos" value={summary ? `${monthsMetThroughCurrent}/${monthsThroughCurrent.length}` : '-'} icon={TrendingUp} tone="pink" />
+        <MetricCard title={isMc02 ? 'Registros observados' : 'Incumplidos total'} value={summary ? incumplidosCount : '-'} icon={UsersRound} tone="rose" />
       </section>
 
       {error && (
@@ -219,13 +197,15 @@ function Dashboard({ selectedProvince, targetCoverage }) {
           <div>
             <h2 className="text-2xl font-bold text-clinic-ink">Avance del indicador</h2>
             <p className="mt-1 text-sm text-clinic-muted">
-              {summary?.committed ? 'Compromiso cumplido' : 'Compromiso pendiente'} segun meta de {activeTarget}% y regla 5 de 6 meses.
+              {isMc02
+                ? `Avance acumulado por cohorte de nacimiento segun meta de ${activeTarget}%.`
+                : `${summary?.committed ? 'Compromiso cumplido' : 'Compromiso pendiente'} segun meta de ${activeTarget}% y regla 5 de 6 meses.`}
             </p>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-clinic-violet/15 bg-white/70 px-4 py-2 text-sm font-semibold text-clinic-muted">
             <CalendarDays className="h-4 w-4 text-clinic-violet" />
             {summary?.cut_off_date
-              ? `Corte: ${new Date(summary.cut_off_date).toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' })}`
+              ? `Corte: ${formatDate(summary.cut_off_date)}`
               : 'Periodo oficial: Junio - Noviembre 2026'}
           </span>
         </div>
@@ -245,7 +225,7 @@ function Dashboard({ selectedProvince, targetCoverage }) {
               <div>
                 <p className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-amber-800">
                   <CalendarDays className="h-4 w-4" />
-                  Mes en evaluacion: {currentEvaluationMonth.month} {currentEvaluationMonth.year}
+                  {currentPeriodTitle}: {currentEvaluationMonth.month} {currentEvaluationMonth.year}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-amber-900">
                   Avance hasta el corte: {currentEvaluationMonth.numerator} de {currentEvaluationMonth.denominator} registros completos.
@@ -273,8 +253,8 @@ function Dashboard({ selectedProvince, targetCoverage }) {
             <table className="min-w-full divide-y divide-clinic-border text-sm">
               <thead className="bg-slate-100">
                 <tr className="text-left text-clinic-ink">
-                  <th className="px-4 py-3 font-bold">Mes</th>
-                  <th className="px-4 py-3 font-bold">Periodo</th>
+                  <th className="px-4 py-3 font-bold">{periodLabelTitle}</th>
+                  <th className="px-4 py-3 font-bold">Estado del periodo</th>
                   <th className="px-4 py-3 font-bold">Cobertura</th>
                   <th className="px-4 py-3 font-bold">Numerador</th>
                   <th className="px-4 py-3 font-bold">Denominador</th>
@@ -298,6 +278,7 @@ function Dashboard({ selectedProvince, targetCoverage }) {
                       <PeriodBadge
                         inVerificationPeriod={item.in_verification_period}
                         isCurrentEvaluationMonth={isCurrentEvaluationMonth}
+                        isMc02={isMc02}
                       />
                     </td>
                     <td className="px-4 py-3 font-semibold text-clinic-ink">{item.coverage}%</td>
@@ -328,14 +309,14 @@ function Dashboard({ selectedProvince, targetCoverage }) {
       <section className="panel p-5 lg:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-clinic-ink">Incumplidos por mes de evaluacion</h2>
+            <h2 className="text-2xl font-bold text-clinic-ink">{incumplidosTitle}</h2>
             <p className="mt-1 text-sm text-clinic-muted">
-              Mostrando registros incumplidos del mes de evaluacion {selectedMonthLabel}.
+              Mostrando registros observados de la {periodLabel} {selectedMonthLabel}.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-muted">Mes evaluacion</span>
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-muted">{periodLabelTitle}</span>
               <select value={selectedMonth} onChange={handleMonthChange} className="field min-w-48">
                 {monthsWithData.map((item) => (
                   <option key={buildMonthKey(item)} value={buildMonthKey(item)}>
@@ -371,6 +352,7 @@ function Dashboard({ selectedProvince, targetCoverage }) {
                   <th className="px-4 py-3 font-bold">Paciente</th>
                   <th className="px-4 py-3 font-bold">Nacimiento</th>
                   <th className="px-4 py-3 font-bold">Establecimiento</th>
+                  <th className="px-4 py-3 font-bold">{isMc02 ? 'Componente observado' : 'Atencion observada'}</th>
                   <th className="px-4 py-3 font-bold">Motivo</th>
                 </tr>
               </thead>
@@ -389,12 +371,19 @@ function Dashboard({ selectedProvince, targetCoverage }) {
                       </p>
                       {item.Des_MicroRed && <p className="mt-1 text-xs text-clinic-muted">{item.Des_MicroRed}</p>}
                     </td>
+                    <td className="px-4 py-3">
+                      <p className="font-bold text-clinic-ink">{item.component || '-'}</p>
+                      <p className="mt-1 text-xs text-clinic-muted">Fecha: {formatDate(item.attention_date)}</p>
+                      <p className="text-xs text-clinic-muted">Edad: {item.attention_age_days ?? '-'} dias</p>
+                      <p className="text-xs text-clinic-muted">EESS: {item.attention_facility || '-'}</p>
+                      <p className="text-xs text-clinic-muted">Profesional: {item.attention_professional || '-'}</p>
+                    </td>
                     <td className="px-4 py-3">{item.reason}</td>
                   </tr>
                 ))}
                 {summary && monthIncumplidos.length === 0 && (
                   <tr>
-                    <td className="px-4 py-4 text-clinic-muted" colSpan="5">
+                    <td className="px-4 py-4 text-clinic-muted" colSpan="6">
                       <span className="inline-flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                         No hay incumplidos en el mes seleccionado.
@@ -404,7 +393,7 @@ function Dashboard({ selectedProvince, targetCoverage }) {
                 )}
                 {!summary && (
                   <tr>
-                    <td className="px-4 py-4 text-clinic-muted" colSpan="5">
+                    <td className="px-4 py-4 text-clinic-muted" colSpan="6">
                       <span className="inline-flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin text-clinic-violet" />
                         Cargando incumplidos...
