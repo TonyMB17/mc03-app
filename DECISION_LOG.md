@@ -172,3 +172,46 @@ npm run dev
 - La tabla de `Incumplidos por mes de evaluacion` muestra la columna `Nacimiento` con formato `dd mmm yyyy`.
 - La descarga Excel `incumplidos.xlsx` incluye la columna `Fecha de nacimiento`.
 - Validacion realizada: la tabla muestra nacimientos como `02 may 2026` y el Excel se genera correctamente.
+
+### Carga y activacion de nuevo Excel
+- Se agrego la vista `Carga de datos` para subir un nuevo archivo `.xlsx`, validar su estructura y activarlo como fuente de datos del sistema.
+- El backend ahora expone:
+  - `GET /api/data/current`
+  - `POST /api/data/upload-preview`
+  - `POST /api/data/activate`
+- La validacion revisa la hoja `Detalle_Ate`, fecha de corte en `B8`, columnas obligatorias, cantidad de registros, meses, provincias, seguros y conteo de `Obs_Eval`.
+- Los archivos cargados se guardan en `backend/uploads/` y la fuente activa se registra en `backend/data_state.json`; ambos quedan ignorados por git.
+- Se agrego `python-multipart` a `backend/requirements.txt` para soportar carga de archivos en FastAPI.
+- Validacion realizada: `python -m compileall backend` OK y `npm.cmd run build` OK. No se pudo ejecutar import completo del backend porque el Python global no tiene dependencias backend instaladas; `pip install` con red quedo en timeout.
+
+### Rediseño de vista de carga de datos
+- Se mejoro visualmente `frontend/src/DataUploadView.jsx` manteniendo Tailwind CSS 3.
+- La vista ahora tiene encabezado operativo con flujo de 3 pasos: subir archivo, validar datos y activar fuente.
+- Se reemplazo el input de archivo basico por una zona de carga con borde punteado, icono y estado del archivo seleccionado.
+- El resumen del archivo activo y el resultado de validacion usan tarjetas de metricas con mejor jerarquia visual.
+- Validacion realizada: `npm.cmd run build` OK.
+
+### Compactacion de vista de carga de datos
+- Se redujo la altura general de `DataUploadView.jsx` ajustando padding, radios, tamanos de iconos y jerarquia tipografica.
+- La zona de seleccion de Excel paso a un formato horizontal mas compacto.
+- Las metricas y listas de validacion ahora usan tarjetas mas densas para evitar una pagina excesivamente extensa.
+- Validacion realizada: `npm.cmd run build` OK.
+
+### Reorganizacion en columnas de carga de datos
+- Se rediseño `DataUploadView.jsx` con una fila superior para la fuente activa y dos columnas principales.
+- La columna izquierda concentra seleccion del archivo, pasos del flujo y acciones.
+- La columna derecha concentra el resultado de validacion, metricas y listas de resumen.
+- Se eliminaron bloques grandes del diseño anterior para lograr una lectura mas ordenada.
+- Validacion realizada: `npm.cmd run build` OK.
+
+### Ajuste horizontal de tarjetas en carga de datos
+- Los pasos de carga dejaron de mostrarse como filas verticales de ancho completo y ahora usan una grilla horizontal de 3 tarjetas.
+- Las metricas del archivo activo y del resultado de validacion se muestran como cards independientes con `gap`, evitando bordes tipo tabla.
+- Se ajustaron margenes y padding de los paneles principales para reducir espacio desperdiciado.
+- Validacion realizada: `npm.cmd run build` OK.
+
+### Tarjetas horizontales para encabezados de carga
+- La seccion `Fuente de datos activa` ahora se muestra como una card dentro de la misma grilla de metricas.
+- La seccion `Carga del archivo` ahora se muestra como una card junto a los tres pasos del flujo.
+- Se agrego un componente local `SectionTitleCard` para unificar encabezados operativos en formato tarjeta.
+- Validacion realizada: `npm.cmd run build` OK.

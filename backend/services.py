@@ -30,6 +30,36 @@ VERIFICATION_MONTHS = {6, 7, 8, 9, 10, 11}
 DEFAULT_PROVINCE = "ABANCAY"
 ALL_PROVINCES_TOKEN = "__ALL__"
 
+REQUIRED_COLUMNS = [
+    "Mes_eva",
+    "Obs_Eval",
+    "Esta_pac",
+    "Desc_prov",
+    "afi_DNI",
+    "NumCNV",
+    "fec_Nac",
+    "fec1_BCG",
+    "resul1_BCG",
+    "Edad_ate1_BCG",
+    "fecHVB",
+    "resulHVB",
+    "Edad_ateHVB",
+    "Fecha_Atencion_1",
+    "Codigo_HIS_1",
+    "Edad_Atencion_1",
+    "Fecha_Atencion_2",
+    "Codigo_HIS_2",
+    "Edad_Atencion_2",
+    "Intervalo_2",
+    "Fecha_Atencion_3",
+    "Codigo_HIS_3",
+    "Edad_Atencion_3",
+    "Intervalo_3",
+    "Fecha_Atencion_TN",
+    "Codigo_HIS_TN",
+    "Edad_Atencion_TN",
+]
+
 
 def _parse_cutoff_date(value: Any) -> date | None:
     if value is None:
@@ -62,6 +92,105 @@ def load_sample_data(filepath: Path) -> dict[str, Any] | None:
     )
 
     return {"data": df, "cutoff_date": cutoff_date}
+
+
+def validate_data_file(filepath: Path) -> dict[str, Any]:
+    if not filepath.exists():
+        return {
+            "valid": False,
+            "errors": ["No se encontro el archivo cargado."],
+            "warnings": [],
+            "summary": {},
+        }
+
+    errors = []
+    warnings = []
+    summary: dict[str, Any] = {
+        "filename": filepath.name,
+        "file_size_bytes": filepath.stat().st_size,
+    }
+
+    try:
+        workbook = load_workbook(filepath, data_only=True, read_only=True)
+    except Exception as exc:
+        return {
+            "valid": False,
+            "errors": [f"No se pudo abrir el Excel: {exc}"],
+            "warnings": [],
+            "summary": summary,
+        }
+
+    if "Detalle_Ate" not in workbook.sheetnames:
+        errors.append("No se encontro la hoja obligatoria 'Detalle_Ate'.")
+        return {"valid": False, "errors": errors, "warnings": warnings, "summary": summary}
+
+    sheet = workbook["Detalle_Ate"]
+    cutoff_date = _parse_cutoff_date(sheet["B8"].value)
+    if cutoff_date is None:
+        warnings.append("No se pudo leer una fecha de corte valida desde la celda B8.")
+    summary["cutoff_date"] = cutoff_date
+
+    try:
+        df = pd.read_excel(filepath, sheet_name="Detalle_Ate", header=9, engine="openpyxl")
+    except Exception as exc:
+        return {
+            "valid": False,
+            "errors": [f"No se pudo leer la hoja 'Detalle_Ate': {exc}"],
+            "warnings": warnings,
+            "summary": summary,
+        }
+
+    missing_columns = [column for column in REQUIRED_COLUMNS if column not in df.columns]
+    if missing_columns:
+        errors.append("Faltan columnas obligatorias: " + ", ".join(missing_columns))
+
+    total_rows = len(df)
+    summary["total_rows"] = total_rows
+    summary["total_columns"] = len(df.columns)
+    summary["columns_found"] = list(df.columns)
+
+    if total_rows == 0:
+        errors.append("La hoja 'Detalle_Ate' no contiene registros.")
+
+    if "Desc_prov" in df.columns:
+        provinces = sorted(
+            value
+            for value in df["Desc_prov"].dropna().astype(str).str.strip().unique().tolist()
+            if value
+        )
+        summary["provinces"] = provinces
+    else:
+        summary["provinces"] = []
+
+    if "Mes_eva" in df.columns:
+        months = sorted(
+            value
+            for value in df["Mes_eva"].dropna().astype(str).str.strip().unique().tolist()
+            if value
+        )
+        summary["months"] = months
+    else:
+        summary["months"] = []
+
+    if "Obs_Eval" in df.columns:
+        obs_counts = df["Obs_Eval"].fillna("VACIO").astype(str).str.strip().value_counts().to_dict()
+        summary["obs_eval_counts"] = obs_counts
+        if "Evaluado" not in obs_counts and "EVALUADO" not in {key.upper(): value for key, value in obs_counts.items()}:
+            warnings.append("No se encontraron registros con Obs_Eval = Evaluado.")
+    else:
+        summary["obs_eval_counts"] = {}
+
+    if "Esta_pac" in df.columns:
+        summary["insurance_counts"] = df["Esta_pac"].fillna("VACIO").astype(str).str.strip().value_counts().to_dict()
+    else:
+        summary["insurance_counts"] = {}
+
+    return {
+        "valid": not errors,
+        "errors": errors,
+        "warnings": warnings,
+        "summary": summary,
+    }
 
 
 def _clean_text(value: Any) -> str:

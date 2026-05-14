@@ -62,6 +62,39 @@ class FilterOptionsResponse(BaseModel):
     exclusion_criteria: dict[str, Any] = {}
 
 
+class DataFileSummary(BaseModel):
+    filename: str | None = None
+    original_name: str | None = None
+    file_size_bytes: int | None = None
+    uploaded_at: str | None = None
+    activated_at: str | None = None
+    cutoff_date: date | None = None
+    total_rows: int | None = None
+    total_columns: int | None = None
+    provinces: List[str] = []
+    months: List[str] = []
+    obs_eval_counts: dict[str, int] = {}
+    insurance_counts: dict[str, int] = {}
+
+
+class DataUploadPreviewResponse(BaseModel):
+    upload_id: str
+    valid: bool
+    errors: List[str] = []
+    warnings: List[str] = []
+    summary: DataFileSummary
+
+
+class DataActivateRequest(BaseModel):
+    upload_id: str
+
+
+class DataCurrentResponse(BaseModel):
+    has_data: bool
+    active_file: str | None = None
+    summary: DataFileSummary | None = None
+
+
 class PersonalData(BaseModel):
     afi_DNI: str | None = None
     NumCNV: str | None = None

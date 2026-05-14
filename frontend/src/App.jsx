@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Activity, BarChart3, Baby, Search, Settings2, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { Activity, BarChart3, Baby, DatabaseZap, Search, Settings2, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import ConfigView, { ALL_PROVINCES, DEFAULT_TARGET_COVERAGE } from './ConfigView';
 import Dashboard from './Dashboard';
+import DataUploadView from './DataUploadView';
 import SearchDNI from './SearchDNI';
 
 const views = {
@@ -19,6 +20,11 @@ const views = {
     title: 'Configuracion',
     description: 'Define la poblacion objetivo, meta y semaforo del indicador.',
     icon: SlidersHorizontal,
+  },
+  data: {
+    title: 'Carga de datos',
+    description: 'Carga, valida y activa el nuevo Excel mensual del indicador MC-03.',
+    icon: DatabaseZap,
   },
 };
 
@@ -85,7 +91,7 @@ function App() {
               </div>
             </div>
 
-            <nav className="grid gap-3 sm:grid-cols-3 lg:flex" aria-label="Vistas principales">
+            <nav className="grid gap-3 sm:grid-cols-2 lg:flex" aria-label="Vistas principales">
               <NavButton active={activeView === 'search'} icon={Search} onClick={() => setActiveView('search')}>
                 Busqueda DNI
               </NavButton>
@@ -94,6 +100,9 @@ function App() {
               </NavButton>
               <NavButton active={activeView === 'config'} icon={SlidersHorizontal} onClick={() => setActiveView('config')}>
                 Configuracion
+              </NavButton>
+              <NavButton active={activeView === 'data'} icon={DatabaseZap} onClick={() => setActiveView('data')}>
+                Carga datos
               </NavButton>
             </nav>
           </div>
@@ -118,6 +127,7 @@ function App() {
               onTargetCoverageChange={setTargetCoverage}
             />
           )}
+          {activeView === 'data' && <DataUploadView />}
         </main>
       </div>
     </div>
