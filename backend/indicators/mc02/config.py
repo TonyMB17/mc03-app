@@ -54,6 +54,13 @@ REGLAS_NEGOCIO = {
         "DNI_30_DIAS": "La ficha tecnica menciona DNI emitido hasta 30 dias, pero no corresponde al area salud.",
     },
 
+    "ALERTA_ANEMIA": {
+        "COLUMNAS_DIAGNOSTICO": ["Dx_Anemia", "CIE_Anemia_1Hier"],
+        "COLUMNAS_FECHA": ["Fec_Anemia", "fecha_1Hier"],
+        "COLUMNA_OBSERVACION": "Obs_Anemia",
+        "MENSAJE": "Si existe diagnostico D509/D649 o ruta de anemia, revisar entrega de hierro como tratamiento: primera entrega vinculada a anemia y al menos 3 entregas validas.",
+    },
+
     "COMPONENTES_ACTIVOS": {
         "NEUMOCOCO": "obs_neu1",
         "ROTAVIRUS": "obs_rot1",
@@ -72,23 +79,35 @@ REGLAS_NEGOCIO = {
                 {"edad_min": 120, "edad_max": 189, "dosis_requeridas": 1, "mensaje": "Debe contar con 1 dosis."},
                 {"edad_min": 190, "edad_max": 364, "dosis_requeridas": 2, "mensaje": "Debe contar con 2 dosis acumuladas."},
             ],
+            "edad_dosis": {
+                1: {"min_dias": 55, "max_dias": 119},
+            },
             "intervalo_dosis": {"min_dias": 28, "max_dias": 70},
         },
         "ROTAVIRUS": {
             "descripcion": "Vacuna rotavirus; aplicacion maxima hasta 240 dias.",
             "rangos": [
-                {"edad_min": 0, "edad_max": 240, "dosis_requeridas": 0, "mensaje": "Puede estar dentro de edad de aplicacion segun dosis pendiente."},
+                {"edad_min": 0, "edad_max": 210, "dosis_requeridas": 0, "mensaje": "Aun no exige dosis para cumplimiento."},
+                {"edad_min": 211, "edad_max": 240, "dosis_requeridas": 1, "mensaje": "Debe contar con 1 dosis aplicada oportunamente."},
                 {"edad_min": 241, "edad_max": 364, "dosis_requeridas": 2, "mensaje": "Debe contar con 2 dosis acumuladas aplicadas hasta los 240 dias."},
             ],
+            "edad_dosis": {
+                1: {"min_dias": 55, "max_dias": 210},
+                2: {"max_dias": 240},
+            },
             "intervalo_dosis": {"min_dias": 28, "max_edad_dias": 240},
         },
         "ANTIPOLIO": {
             "descripcion": "Vacuna antipolio segun edad.",
             "rangos": [
-                {"edad_min": 0, "edad_max": 210, "dosis_requeridas": 0, "mensaje": "Aun no exige dosis para cumplimiento segun tabla."},
-                {"edad_min": 211, "edad_max": 240, "dosis_requeridas": 1, "mensaje": "Debe contar con 1 dosis."},
+                {"edad_min": 0, "edad_max": 119, "dosis_requeridas": 0, "mensaje": "Aun no exige dosis para cumplimiento."},
+                {"edad_min": 120, "edad_max": 189, "dosis_requeridas": 1, "mensaje": "Debe contar con 1 dosis."},
+                {"edad_min": 190, "edad_max": 259, "dosis_requeridas": 2, "mensaje": "Debe contar con 2 dosis acumuladas."},
                 {"edad_min": 260, "edad_max": 364, "dosis_requeridas": 3, "mensaje": "Debe contar con 3 dosis acumuladas."},
             ],
+            "edad_dosis": {
+                1: {"min_dias": 55, "max_dias": 119},
+            },
             "intervalo_dosis": {"min_dias": 28, "max_dias": 70},
         },
         "PENTAVALENTE": {
@@ -99,14 +118,18 @@ REGLAS_NEGOCIO = {
                 {"edad_min": 190, "edad_max": 259, "dosis_requeridas": 2, "mensaje": "Debe contar con 2 dosis acumuladas."},
                 {"edad_min": 260, "edad_max": 364, "dosis_requeridas": 3, "mensaje": "Debe contar con 3 dosis acumuladas."},
             ],
+            "edad_dosis": {
+                1: {"min_dias": 55, "max_dias": 119},
+            },
             "intervalo_dosis": {"min_dias": 28, "max_dias": 70},
         },
         "HIERRO_MENOR_6_MESES": {
             "descripcion": "Suplementacion preventiva con hierro en esquema de 4 meses.",
             "rangos": [
-                {"edad_min": 0, "edad_max": 209, "entregas_requeridas": 0, "mensaje": "Aun no exige entrega acumulada."},
-                {"edad_min": 210, "edad_max": 364, "entregas_requeridas": 1, "mensaje": "Debe contar con al menos 1 entrega de hierro."},
+                {"edad_min": 0, "edad_max": 130, "entregas_requeridas": 0, "mensaje": "Aun no exige entrega de hierro de 4 meses."},
+                {"edad_min": 131, "edad_max": 364, "entregas_requeridas": 1, "mensaje": "Debe contar con 1 entrega de hierro entre 110 y 130 dias."},
             ],
+            "ventana_atencion": {"inicio_dia": 110, "fin_dia": 130},
             "exclusiones": ["99499"],
         },
         "HIERRO_MAYOR_6_MESES": {
@@ -347,7 +370,7 @@ RESUMEN = {
     },
     
     "obs_neu1": {
-        "descripcion": "Observación de evaluación neurológica"
+        "descripcion": "Observación de vacuna neumococo"
     },
     
     "obs_rot1": {
@@ -355,7 +378,7 @@ RESUMEN = {
     },
     
     "obs_ant1": {
-        "descripcion": "Observación de vacuna Antineumocócica"
+        "descripcion": "Observación de vacuna antipolio"
     },
     
     "obs_pen1": {

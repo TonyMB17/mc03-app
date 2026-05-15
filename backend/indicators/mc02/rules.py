@@ -1,4 +1,10 @@
-"""MC-02 operational rules based on the processed Excel."""
+"""MC-02 operational rule aliases.
+
+This file exposes the configuration values used by processors and validators:
+birth cohort month ``Mes_Nac``, province ``provincia``, insurance ``Obs_Niño``,
+denominator ``Registros``, active component flags and current local omissions
+for CRED and DNI within 30 days.
+"""
 
 from .config import CODIGOS_ESTANDAR, REGLAS_NEGOCIO
 

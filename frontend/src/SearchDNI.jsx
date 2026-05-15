@@ -81,16 +81,35 @@ function formatDate(value) {
 }
 
 function DetailMessage({ item }) {
+  const showWindow = !item.cumple && (item.fecha_inicio || item.fecha_limite);
   return (
     <div className="mt-3 rounded-xl border border-clinic-violet/10 bg-clinic-mint/35 p-3">
       <p className="text-sm leading-6 text-clinic-muted">{item.mensaje}</p>
-      <p className="mt-2 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-clinic-muted">
-        <Timer className="h-3.5 w-3.5 text-clinic-violet" />
-        Ventana: {formatDate(item.fecha_inicio)} - {formatDate(item.fecha_limite)}
-      </p>
+      {showWindow && (
+        <p className="mt-2 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-clinic-muted">
+          <Timer className="h-3.5 w-3.5 text-clinic-violet" />
+          Servicio segun edad actual: {formatDate(item.fecha_inicio)} - {formatDate(item.fecha_limite)}
+        </p>
+      )}
     </div>
   );
 }
+
+const doseStatusStyles = {
+  registrada: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  registrada_no_exigible: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  no_registrada: 'bg-red-50 text-red-700 ring-red-200',
+  fuera_plazo: 'bg-red-50 text-red-700 ring-red-200',
+  no_requerida: 'bg-slate-100 text-clinic-muted ring-slate-200',
+};
+
+const doseStatusLabels = {
+  registrada: 'Valida',
+  registrada_no_exigible: 'Valida',
+  no_registrada: 'No registrada',
+  fuera_plazo: 'Fuera de plazo',
+  no_requerida: 'No requerida',
+};
 
 function DoseDetails({ doses = [] }) {
   if (!doses.length) return null;
@@ -103,19 +122,32 @@ function DoseDetails({ doses = [] }) {
       </summary>
       <div className="mt-3 space-y-2">
         {doses.map((dose) => (
-          <div key={`${dose.label}-${dose.fecha}-${dose.codigo}`} className="grid gap-2 rounded-lg bg-clinic-mint/30 p-3 text-xs text-clinic-muted sm:grid-cols-[0.7fr_1fr_0.8fr]">
-            <p>
-              <span className="block font-bold text-clinic-ink">{dose.label}</span>
-              {formatDate(dose.fecha)}
-            </p>
-            <p>
-              <span className="block font-bold text-clinic-ink">Codigo</span>
-              {dose.codigo || '-'}{dose.lab ? ` · LAB ${dose.lab}` : ''}
-            </p>
-            <p>
-              <span className="block font-bold text-clinic-ink">Edad</span>
-              {dose.edad_atencion_dias ?? '-'} dias
-            </p>
+          <div key={`${dose.label}-${dose.fecha}-${dose.codigo}`} className="rounded-lg bg-clinic-mint/30 p-3 text-xs text-clinic-muted">
+            <div className="grid gap-2 sm:grid-cols-[0.7fr_1fr_0.8fr_auto] sm:items-start">
+              <p>
+                <span className="block font-bold text-clinic-ink">{dose.label}</span>
+                {formatDate(dose.fecha)}
+              </p>
+              <p>
+                <span className="block font-bold text-clinic-ink">Codigo</span>
+                {dose.codigo || '-'}{dose.lab ? ` - LAB ${dose.lab}` : ''}
+              </p>
+              <p>
+                <span className="block font-bold text-clinic-ink">Edad</span>
+                {dose.edad_atencion_dias ?? '-'} dias
+              </p>
+              <span className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 font-bold ring-1 ${doseStatusStyles[dose.estado] ?? doseStatusStyles.no_requerida}`}>
+                {doseStatusLabels[dose.estado] ?? dose.estado}
+              </span>
+            </div>
+            {!dose.cumple && (dose.ventana_inicio || dose.ventana_fin) && (
+              <p className="mt-2 rounded-md bg-white/70 px-2 py-1 font-semibold text-clinic-muted">
+                Ventana de esta dosis: {formatDate(dose.ventana_inicio)} - {formatDate(dose.ventana_fin)}
+              </p>
+            )}
+            {dose.motivo && !dose.cumple && (
+              <p className="mt-2 rounded-md bg-white/70 px-2 py-1 font-semibold text-clinic-muted">{dose.motivo}</p>
+            )}
           </div>
         ))}
       </div>
@@ -244,6 +276,20 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
               </div>
             </div>
           </article>
+
+          {result.clinical_alerts?.length > 0 && (
+            <article className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
+              <h3 className="inline-flex items-center gap-2 text-lg font-bold">
+                <AlertTriangle className="h-5 w-5" />
+                Alertas clinicas
+              </h3>
+              <div className="mt-3 space-y-2 text-sm font-semibold leading-6">
+                {result.clinical_alerts.map((alert) => (
+                  <p key={alert}>{alert}</p>
+                ))}
+              </div>
+            </article>
+          )}
 
           <article className="inner-panel p-5">
             <SectionTitle icon={packageIcon} title={packageTitle} />

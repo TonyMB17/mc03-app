@@ -190,6 +190,7 @@ def _incumplidos_xlsx(omisos: list[dict]) -> bytes:
         ("Edad atencion dias", "attention_age_days"),
         ("EESS atencion", "attention_facility"),
         ("Profesional atencion", "attention_professional"),
+        ("Alertas clinicas", "clinical_alerts"),
         ("Motivo de incumplimiento", "reason"),
     ]
 
@@ -200,7 +201,10 @@ def _incumplidos_xlsx(omisos: list[dict]) -> bytes:
 
     for row_index, item in enumerate(omisos, start=2):
         for column_index, (_, key) in enumerate(columns, start=1):
-            sheet.cell(row=row_index, column=column_index, value=item.get(key))
+            value = item.get(key)
+            if isinstance(value, list):
+                value = "; ".join(str(part) for part in value if part)
+            sheet.cell(row=row_index, column=column_index, value=value)
 
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions

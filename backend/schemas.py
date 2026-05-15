@@ -40,6 +40,7 @@ class OmisoItem(BaseModel):
     attention_age_days: int | None = None
     attention_facility: str | None = None
     attention_professional: str | None = None
+    clinical_alerts: List[str] = []
     reason: str
 
 
@@ -169,6 +170,7 @@ class TamizajeRecord(BaseModel):
 class SearchDNIResult(BaseModel):
     personal: PersonalData
     vacunas: dict[str, VacunaRecord]
+    clinical_alerts: List[str] = []
     cred_controls: List[CREDRecord]
     tamizaje: TamizajeRecord
     paquete_completo: bool

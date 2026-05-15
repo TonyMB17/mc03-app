@@ -342,3 +342,23 @@ npm run dev
 - El backend ahora entrega `dosis` por componente para neumococo, rotavirus, antipolio y pentavalente, con fecha, edad, codigo, LAB, lote y establecimiento cuando existe.
 - El frontend mantiene la tarjeta minimalista con estado del componente y agrega un detalle desplegable para revisar las dosis sin sobrecargar la pantalla.
 - Esta separacion aclara casos donde el componente agregado esta pendiente o fuera de plazo aunque una o mas dosis ya se hayan registrado.
+
+### Validacion especifica de dosis de vacunas MC-02
+- Se agrego evaluacion por dosis para vacunas MC-02 usando las reglas de ventana ya configuradas.
+- Cada dosis puede quedar como `registrada`, `no_registrada`, `fuera_plazo` o `no_requerida`.
+- Rotavirus valida edad maxima de 240 dias; si una dosis se aplica despues de ese limite, el componente queda como `incumplimiento_fuera_plazo`.
+- Para vacunas con dosis sucesivas se valida intervalo minimo de 28 dias y maximo de 70 dias cuando la ficha lo define.
+- Se verifico el caso `94350201`: rotavirus tiene primera dosis valida y segunda dosis a los 243 dias, por lo que se marca la segunda dosis como `fuera_plazo` y el componente como `incumplimiento_fuera_plazo`.
+- Se corrigio la prioridad visual para casos completados antes de exigibilidad: el caso `94389087` ahora muestra rotavirus como `cumple` porque tiene dos dosis validas, aunque por edad aun siga dentro de ventana.
+- Se ajusto nuevamente el caso `94389087`: pentavalente queda como `incumplimiento_fuera_plazo` porque la tercera dosis fue registrada y se audita contra la ventana activada por la segunda dosis; su ventana valida fue del 17 feb 2026 al 31 mar 2026 y la aplicacion fue a los 92 dias de intervalo.
+- En busqueda por DNI se oculta el texto de ventana cuando el componente ya cumple; para observados se renombra como servicio segun edad actual.
+- Se corrigio antipolio para usar el mismo esquema de edad que pentavalente: 1 dosis desde 120 dias, 2 dosis desde 190 dias y 3 dosis desde 260 dias.
+- En el detalle de dosis de busqueda, las dosis validas ya no muestran ventana ni motivo; solo las dosis observadas muestran el detalle de incumplimiento.
+
+### Reorganizacion backend MC-02
+- Se redujo `backend/indicators/mc02/processor.py` para que actue como orquestador de carga, validacion, dashboard y busqueda.
+- Se creo `backend/indicators/mc02/denominator.py` para separar denominador, seguros incluidos y exclusiones.
+- Se creo `backend/indicators/mc02/vaccines.py` para concentrar componentes activos, dosis, ventanas e intervalos.
+- Se creo `backend/indicators/mc02/utils.py` para conversiones comunes de fechas, numeros, textos, flags y meses.
+- Se agregaron fronteras `iron.py`, `hemoglobin.py` y `messages.py` para futuras separaciones de hierro, hemoglobina y mensajes.
+- Validacion posterior al refactor: mayo 2026 mantiene denominador 34; el caso `94389087` mantiene antipolio y pentavalente como `incumplimiento_fuera_plazo` por tercera dosis fuera de ventana.

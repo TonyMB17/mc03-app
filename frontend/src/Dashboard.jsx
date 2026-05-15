@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   CalendarDays,
@@ -354,6 +355,7 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
                   <th className="px-4 py-3 font-bold">Establecimiento</th>
                   <th className="px-4 py-3 font-bold">{isMc02 ? 'Componente observado' : 'Atencion observada'}</th>
                   <th className="px-4 py-3 font-bold">Motivo</th>
+                  <th className="px-4 py-3 font-bold">Alertas</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-clinic-border bg-white">
@@ -379,11 +381,19 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
                       <p className="text-xs text-clinic-muted">Profesional: {item.attention_professional || '-'}</p>
                     </td>
                     <td className="px-4 py-3">{item.reason}</td>
+                    <td className="px-4 py-3">
+                      {item.clinical_alerts?.length > 0 ? (
+                        <span className="inline-flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                          {item.clinical_alerts.join('; ')}
+                        </span>
+                      ) : '-'}
+                    </td>
                   </tr>
                 ))}
                 {summary && monthIncumplidos.length === 0 && (
                   <tr>
-                    <td className="px-4 py-4 text-clinic-muted" colSpan="6">
+                    <td className="px-4 py-4 text-clinic-muted" colSpan="7">
                       <span className="inline-flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                         No hay incumplidos en el mes seleccionado.
@@ -393,7 +403,7 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
                 )}
                 {!summary && (
                   <tr>
-                    <td className="px-4 py-4 text-clinic-muted" colSpan="6">
+                    <td className="px-4 py-4 text-clinic-muted" colSpan="7">
                       <span className="inline-flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin text-clinic-violet" />
                         Cargando incumplidos...
