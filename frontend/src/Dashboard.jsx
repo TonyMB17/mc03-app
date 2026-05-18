@@ -10,6 +10,7 @@ import {
   Download,
   FileSpreadsheet,
   Hospital,
+  Layers3,
   Loader2,
   Target,
   TrendingUp,
@@ -17,6 +18,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import MetricCard from './components/MetricCard';
+import indicators from './indicators/registry';
 import { formatShortDate } from './utils/dates';
 
 const PAGE_SIZE = 10;
@@ -96,6 +98,11 @@ function formatDate(value) {
   return formatShortDate(value);
 }
 
+function formatSubindicatorCode(value) {
+  const code = String(value || '').toUpperCase();
+  return code.replace(/^SI02_(\d+)$/, 'SI-02.$1');
+}
+
 function splitSemicolonList(value) {
   return String(value || '')
     .split(';')
@@ -126,18 +133,125 @@ function ObservedComponentsCell({ item }) {
   );
 }
 
+function latestPeriodWithData(monthly = []) {
+  const withData = monthly.filter((item) => item.denominator > 0);
+  return [...withData].sort((left, right) => buildMonthOrder(left) - buildMonthOrder(right)).at(-1) ?? monthly.at(-1);
+}
+
+function SubindicatorSelector({ options, value, onChange }) {
+  return (
+    <section className="panel p-4 lg:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-2xl">
+          <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-clinic-muted">
+            <Layers3 className="h-4 w-4 text-clinic-violet" />
+            Vista SI-02
+          </p>
+          <h3 className="mt-2 text-xl font-bold text-clinic-ink">Seguimiento por subindicador</h3>
+          <p className="mt-1 text-sm leading-6 text-clinic-muted">
+            Cambia entre el compromiso global y cada subindicador para revisar avance mensual, omisos y descarga enfocada.
+          </p>
+        </div>
+        <div className="grid w-full gap-2 md:grid-cols-2 xl:grid-cols-5">
+          {options.map((option) => {
+            const active = option.code === value;
+            const latest = latestPeriodWithData(option.summary?.monthly ?? []);
+            return (
+              <button
+                key={option.code}
+                type="button"
+                onClick={() => onChange(option.code)}
+                className={`min-h-24 rounded-xl border p-3 text-left transition ${
+                  active
+                    ? 'border-clinic-teal bg-clinic-mint text-clinic-ink shadow-soft'
+                    : 'border-clinic-border bg-white/70 text-clinic-muted hover:-translate-y-0.5 hover:border-clinic-teal/40 hover:bg-white'
+                }`}
+              >
+                <span className="text-xs font-bold uppercase tracking-[0.14em]">{option.shortName}</span>
+                <span className="mt-1 block text-sm font-bold leading-5 text-clinic-ink">{option.title}</span>
+                <span className="mt-2 block text-xs font-semibold">
+                  {option.summary
+                    ? `${option.summary.months_met}/${option.summary.months_evaluated} meses, ${option.omisosCount} omisos`
+                    : 'Sin datos cargados'}
+                </span>
+                {latest && (
+                  <span className="mt-1 block text-xs font-semibold">
+                    Ultimo mes: {latest.coverage}% ({latest.numerator}/{latest.denominator})
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
   const [status, setStatus] = useState('cargando...');
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState(null);
   const [downloadError, setDownloadError] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedSubindicator, setSelectedSubindicator] = useState('all');
   const [page, setPage] = useState(1);
   const isMc02 = selectedIndicator === 'mc02';
+  const isSi02 = selectedIndicator === 'si02';
+  const activeIndicator = indicators[selectedIndicator] ?? indicators.mc03;
   const periodLabel = isMc02 ? 'cohorte' : 'mes de evaluacion';
   const periodLabelTitle = isMc02 ? 'Cohorte' : 'Mes';
   const currentPeriodTitle = isMc02 ? 'Cohorte en evaluacion' : 'Mes en evaluacion';
-  const incumplidosTitle = isMc02 ? 'Incumplidos por cohorte de nacimiento' : 'Incumplidos por mes de evaluacion';
+  const isGlobalSi02View = isSi02 && selectedSubindicator === 'all';
+  const selectedSubindicatorSummary = isSi02 && selectedSubindicator !== 'all'
+    ? summary?.subindicators?.[selectedSubindicator]
+    : null;
+  const viewSummary = selectedSubindicatorSummary ?? summary;
+  const viewTarget = viewSummary?.target_coverage ?? targetCoverage;
+  const viewTitle = selectedSubindicatorSummary
+    ? selectedSubindicatorSummary.subindicator_name
+    : isSi02
+      ? 'Compromiso global SI-02'
+      : 'Avance del indicador';
+  const incumplidosTitle = isMc02
+    ? 'Incumplidos por cohorte de nacimiento'
+    : isSi02
+      ? selectedSubindicatorSummary
+        ? `Incumplidos - ${formatSubindicatorCode(selectedSubindicatorSummary.subindicator_code)}`
+        : 'Incumplidos por subindicador y mes'
+      : 'Incumplidos por mes de evaluacion';
+  const si02SubindicatorOptions = useMemo(() => {
+    if (!isSi02) return [];
+    const configured = activeIndicator.subindicators ?? [];
+    const summaryByCode = summary?.subindicators ?? {};
+    const globalSummary = summary
+      ? {
+          months_met: summary.months_met,
+          months_evaluated: summary.months_evaluated,
+          monthly: summary.monthly ?? [],
+          omisos: summary.omisos ?? [],
+        }
+      : null;
+    return [
+      {
+        code: 'all',
+        shortName: 'Global',
+        title: 'Todo SI-02',
+        summary: globalSummary,
+        omisosCount: globalSummary?.omisos?.length ?? 0,
+      },
+      ...configured.map((item) => {
+        const itemSummary = summaryByCode[item.code];
+        return {
+          code: item.code,
+          shortName: item.shortName,
+          title: itemSummary?.subindicator_name ?? item.title,
+          summary: itemSummary,
+          omisosCount: itemSummary?.omisos?.length ?? 0,
+        };
+      }),
+    ];
+  }, [activeIndicator.subindicators, isSi02, summary]);
 
   useEffect(() => {
     setError(null);
@@ -156,21 +270,32 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
   }, [selectedProvince, targetCoverage, selectedIndicator]);
 
   useEffect(() => {
-    if (!summary?.monthly?.length) return;
+    setSelectedSubindicator('all');
+  }, [selectedIndicator]);
 
-    const monthsWithData = summary.monthly.filter((item) => item.denominator > 0);
-    const cutoffMonthKey = summary.cut_off_date
+  useEffect(() => {
+    if (!isSi02 || selectedSubindicator === 'all') return;
+    if (!si02SubindicatorOptions.some((option) => option.code === selectedSubindicator)) {
+      setSelectedSubindicator('all');
+    }
+  }, [isSi02, selectedSubindicator, si02SubindicatorOptions]);
+
+  useEffect(() => {
+    if (!viewSummary?.monthly?.length) return;
+
+    const monthsWithData = viewSummary.monthly.filter((item) => item.denominator > 0);
+    const cutoffMonthKey = summary?.cut_off_date
       ? `${new Date(summary.cut_off_date).getUTCFullYear()}_${new Date(summary.cut_off_date).getUTCMonth() + 1}`
       : '';
     const availableCutoffMonth = monthsWithData.find((item) => buildMonthKey(item) === cutoffMonthKey);
-    const fallbackMonth = [...monthsWithData].reverse()[0] ?? summary.monthly[0];
+    const fallbackMonth = [...monthsWithData].reverse()[0] ?? viewSummary.monthly[0];
     setSelectedMonth(buildMonthKey(availableCutoffMonth ?? fallbackMonth));
     setPage(1);
-  }, [summary]);
+  }, [summary?.cut_off_date, viewSummary]);
 
-  const incumplidosCount = summary?.omisos?.length ?? 0;
-  const monthsWithData = summary?.monthly?.filter((item) => item.denominator > 0) ?? [];
-  const activeTarget = summary?.target_coverage ?? targetCoverage;
+  const incumplidosCount = viewSummary?.omisos?.length ?? 0;
+  const monthsWithData = viewSummary?.monthly?.filter((item) => item.denominator > 0) ?? [];
+  const activeTarget = viewTarget;
   const currentEvaluationKey = summary?.cut_off_date
     ? `${new Date(summary.cut_off_date).getUTCFullYear()}_${new Date(summary.cut_off_date).getUTCMonth() + 1}`
     : '';
@@ -189,12 +314,12 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
     ? Math.max(0, currentTargetCount - currentEvaluationMonth.numerator)
     : 0;
 
-  const selectedMonthItem = summary?.monthly?.find((item) => buildMonthKey(item) === selectedMonth);
+  const selectedMonthItem = viewSummary?.monthly?.find((item) => buildMonthKey(item) === selectedMonth);
   const selectedMonthLabel = selectedMonthItem ? `${selectedMonthItem.month} ${selectedMonthItem.year}` : 'mes seleccionado';
 
   const monthIncumplidos = useMemo(
-    () => summary?.omisos?.filter((item) => item.Mes_eva === selectedMonth) ?? [],
-    [summary, selectedMonth],
+    () => viewSummary?.omisos?.filter((item) => item.Mes_eva === selectedMonth) ?? [],
+    [selectedMonth, viewSummary],
   );
 
   const totalPages = Math.max(1, Math.ceil(monthIncumplidos.length / PAGE_SIZE));
@@ -203,6 +328,9 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
   const displayStart = monthIncumplidos.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const displayEnd = Math.min(safePage * PAGE_SIZE, monthIncumplidos.length);
   const downloadParams = new URLSearchParams({ province: selectedProvince, month: selectedMonth, indicator: selectedIndicator });
+  if (isSi02 && selectedSubindicator !== 'all') {
+    downloadParams.set('subindicator', selectedSubindicator);
+  }
 
   const handleMonthChange = (event) => {
     setSelectedMonth(event.target.value);
@@ -218,7 +346,8 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
       const blobUrl = window.URL.createObjectURL(response.data);
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = `incumplidos_${selectedIndicator}${selectedMonth ? `_${selectedMonth}` : ''}.xlsx`;
+      const subindicatorSuffix = isSi02 && selectedSubindicator !== 'all' ? `_${selectedSubindicator}` : '';
+      link.download = `incumplidos_${selectedIndicator}${subindicatorSuffix}${selectedMonth ? `_${selectedMonth}` : ''}.xlsx`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -230,11 +359,19 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
 
   return (
     <section className="space-y-6">
+      {isSi02 && (
+        <SubindicatorSelector
+          options={si02SubindicatorOptions}
+          value={selectedSubindicator}
+          onChange={setSelectedSubindicator}
+        />
+      )}
+
       <section className="grid gap-4 md:grid-cols-4">
         <MetricCard title="Estado API" value={summary ? 'Conectado' : status} icon={summary ? CheckCircle2 : Loader2} tone="blue" />
-        <MetricCard title="Meta" value={`${activeTarget}%`} icon={Target} tone="lilac" />
-        <MetricCard title="Meses cumplidos" value={summary ? `${monthsMetThroughCurrent}/${monthsThroughCurrent.length}` : '-'} icon={TrendingUp} tone="pink" />
-        <MetricCard title={isMc02 ? 'Registros observados' : 'Incumplidos total'} value={summary ? incumplidosCount : '-'} icon={UsersRound} tone="rose" />
+        <MetricCard title={isSi02 ? 'Meta de vista' : 'Meta'} value={`${activeTarget}%`} icon={Target} tone="lilac" />
+        <MetricCard title="Meses cumplidos" value={viewSummary ? `${monthsMetThroughCurrent}/${monthsThroughCurrent.length}` : '-'} icon={TrendingUp} tone="pink" />
+        <MetricCard title={isMc02 ? 'Registros observados' : 'Incumplidos total'} value={viewSummary ? incumplidosCount : '-'} icon={UsersRound} tone="rose" />
       </section>
 
       {error && (
@@ -246,11 +383,15 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
       <section className="panel p-5 lg:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-clinic-ink">Avance del indicador</h2>
+            <h2 className="text-2xl font-bold text-clinic-ink">{viewTitle}</h2>
             <p className="mt-1 text-sm text-clinic-muted">
               {isMc02
                 ? `Avance acumulado por cohorte de nacimiento segun meta de ${activeTarget}%.`
-                : `${summary?.committed ? 'Compromiso cumplido' : 'Compromiso pendiente'} segun meta de ${activeTarget}% y regla 5 de 6 meses.`}
+                : isSi02
+                  ? selectedSubindicatorSummary
+                    ? `Vista especifica del subindicador ${formatSubindicatorCode(selectedSubindicatorSummary.subindicator_code)} segun meta oficial de ${activeTarget}%.`
+                    : `Avance agregado del paquete SI-02 segun meta de referencia de ${activeTarget}%.`
+                  : `${summary?.committed ? 'Compromiso cumplido' : 'Compromiso pendiente'} segun meta de ${activeTarget}% y regla 5 de 6 meses.`}
             </p>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-clinic-violet/15 bg-white/70 px-4 py-2 text-sm font-semibold text-clinic-muted">
@@ -339,7 +480,7 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
                   </tr>
                   );
                 })}
-                {summary && monthsWithData.length === 0 && (
+                {viewSummary && monthsWithData.length === 0 && (
                   <tr>
                     <td className="px-4 py-4 text-clinic-muted" colSpan="6">
                       No hay meses con registros evaluables para mostrar.
@@ -404,20 +545,29 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
                 <tr className="text-left text-clinic-ink">
                   <th className="px-4 py-3 font-bold">DNI</th>
                   <th className="px-4 py-3 font-bold">Paciente</th>
+                  {isGlobalSi02View && <th className="px-4 py-3 font-bold">Subindicador</th>}
                   <th className="px-4 py-3 font-bold">Nacimiento</th>
                   <th className="px-4 py-3 font-bold">Establecimiento</th>
-                  <th className="w-60 px-4 py-3 font-bold">{isMc02 ? 'Componentes observados' : 'Atencion observada'}</th>
+                  <th className="w-60 px-4 py-3 font-bold">{isMc02 || isSi02 ? 'Componentes observados' : 'Atencion observada'}</th>
                   <th className="min-w-[36rem] px-4 py-3 font-bold">Motivo</th>
                   <th className="px-4 py-3 font-bold">Alertas</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-clinic-border bg-white">
                 {paginatedIncumplidos.map((item) => (
-                  <tr key={`${item.Mes_eva}-${item.afi_DNI}-${item.NumCNV}`} className="text-clinic-muted transition hover:bg-clinic-rose/10">
+                  <tr key={`${item.subindicator_code || selectedIndicator}-${item.Mes_eva}-${item.afi_DNI}-${item.NumCNV}`} className="text-clinic-muted transition hover:bg-clinic-rose/10">
                     <td className="px-4 py-3 font-semibold text-clinic-ink">{item.afi_DNI || item.NumCNV || '-'}</td>
                     <td className="px-4 py-3">
                       {[item.afi_nombres, item.afi_appaterno, item.afi_apmaterno].filter(Boolean).join(' ') || '-'}
                     </td>
+                    {isGlobalSi02View && (
+                      <td className="px-4 py-3">
+                        <span className="inline-flex rounded-full bg-clinic-mint px-2.5 py-1 text-xs font-bold uppercase tracking-[0.12em] text-clinic-teal ring-1 ring-teal-100">
+                          {formatSubindicatorCode(item.subindicator_code) || '-'}
+                        </span>
+                        {item.subindicator_name && <p className="mt-1 w-44 text-xs leading-5 text-clinic-muted">{item.subindicator_name}</p>}
+                      </td>
+                    )}
                     <td className="px-4 py-3 font-semibold text-clinic-ink">{formatDate(item.fec_Nac)}</td>
                     <td className="px-4 py-3">
                       <p className="inline-flex items-center gap-2 font-bold text-clinic-ink">
@@ -440,9 +590,9 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
                     </td>
                   </tr>
                 ))}
-                {summary && monthIncumplidos.length === 0 && (
+                {viewSummary && monthIncumplidos.length === 0 && (
                   <tr>
-                    <td className="px-4 py-4 text-clinic-muted" colSpan="7">
+                    <td className="px-4 py-4 text-clinic-muted" colSpan={isGlobalSi02View ? 8 : 7}>
                       <span className="inline-flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                         No hay incumplidos en el mes seleccionado.
@@ -452,7 +602,7 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
                 )}
                 {!summary && (
                   <tr>
-                    <td className="px-4 py-4 text-clinic-muted" colSpan="7">
+                    <td className="px-4 py-4 text-clinic-muted" colSpan={isGlobalSi02View ? 8 : 7}>
                       <span className="inline-flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin text-clinic-violet" />
                         Cargando incumplidos...
@@ -490,7 +640,7 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
         </div>
       </section>
 
-      {summary?.committed === false && (
+      {summary?.committed === false && selectedSubindicator === 'all' && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
           <span className="inline-flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />

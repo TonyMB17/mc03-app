@@ -126,6 +126,16 @@ def _file_sha256(filepath: Path) -> str:
     return digest.hexdigest()
 
 
+def _combined_file_sha256(filepaths: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for filepath in sorted(filepaths, key=lambda item: item.name):
+        digest.update(filepath.name.encode("utf-8"))
+        with filepath.open("rb") as file:
+            for chunk in iter(lambda: file.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _actor_metadata(user) -> dict:
     if user is None:
         return {}
@@ -237,6 +247,12 @@ def _build_current_summary(
         "insurance_counts": summary.get("insurance_counts", {}),
         "storage_format": summary.get("storage_format"),
         "source_preserved": summary.get("source_preserved"),
+        "files_received": summary.get("files_received"),
+        "expected_files": summary.get("expected_files"),
+        "subindicators_found": summary.get("subindicators_found", []),
+        "missing_subindicators": summary.get("missing_subindicators", []),
+        "subindicators": summary.get("subindicators", {}),
+        "total_loaded_columns": summary.get("total_loaded_columns"),
     }
 
 
@@ -266,14 +282,21 @@ def _activate_data_file(
         app.state.current_data_summary = app.state.indicator_data[indicator]["current_data_summary"]
 
 
-def _filter_omisos_by_month(omisos: list[dict], month: str | None) -> list[dict]:
-    if not month:
-        return omisos
-    return [item for item in omisos if item.get("Mes_eva") == month]
+def _filter_omisos(omisos: list[dict], month: str | None = None, subindicator: str | None = None) -> list[dict]:
+    filtered = omisos
+    if month:
+        filtered = [item for item in filtered if item.get("Mes_eva") == month]
+    if subindicator:
+        filtered = [item for item in filtered if item.get("subindicator_code") == subindicator]
+    return filtered
 
 
 def _indicator_preparer(definition):
     return getattr(definition.module, "prepare_data_file", None)
+
+
+def _indicator_package_preparer(definition):
+    return getattr(definition.module, "prepare_data_files", None)
 
 
 def _indicator_persister(definition):
@@ -489,6 +512,8 @@ def _incumplidos_xlsx(omisos: list[dict]) -> bytes:
     sheet.title = "Incumplidos"
 
     columns = [
+        ("Subindicador", "subindicator_code"),
+        ("Nombre subindicador", "subindicator_name"),
         ("Mes evaluacion", "Mes_eva"),
         ("Mes", "month"),
         ("Anio", "year"),
@@ -651,52 +676,77 @@ def api_audit_events(
 
 @app.post("/api/data/upload-preview", response_model=DataUploadPreviewResponse, tags=["Carga de datos"])
 def api_data_upload_preview(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    files: list[UploadFile] = File(default=[]),
     indicator: str = Query("mc03"),
     _user=Depends(require_roles(ROLE_ADMIN)),
 ):
     definition = _indicator_definition(indicator)
     indicator = definition.code
-    suffix = Path(file.filename or "").suffix.lower()
-    if suffix != ".xlsx":
+    uploaded_files = [item for item in ([file] if file else []) + (files or []) if item and item.filename]
+    if not uploaded_files:
+        raise HTTPException(status_code=400, detail="Debe cargar al menos un archivo Excel .xlsx")
+    if any(Path(item.filename or "").suffix.lower() != ".xlsx" for item in uploaded_files):
         raise HTTPException(status_code=400, detail="Solo se permiten archivos Excel .xlsx")
 
     upload_id = uuid4().hex
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    original_name = _safe_filename(file.filename or f"archivo_{definition.code}.xlsx")
-    destination = UPLOADS_DIR / f"{timestamp}_{upload_id[:8]}_{original_name}"
+    destinations: list[Path] = []
+    for index, uploaded_file in enumerate(uploaded_files, start=1):
+        original_filename = _safe_filename(uploaded_file.filename or f"archivo_{definition.code}_{index}.xlsx")
+        destination = UPLOADS_DIR / f"{timestamp}_{upload_id[:8]}_{index}_{original_filename}"
+        with destination.open("wb") as buffer:
+            shutil.copyfileobj(uploaded_file.file, buffer)
+        destinations.append(destination)
 
-    with destination.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    file_hash = _file_sha256(destination)
+    package_preparer = _indicator_package_preparer(definition)
+    package_upload = package_preparer is not None
+    if len(destinations) > 1 and package_preparer is None:
+        for destination in destinations:
+            _delete_file_quietly(destination)
+        raise HTTPException(status_code=400, detail="El indicador seleccionado no acepta carga multiparchivo")
+
+    destination = destinations[0]
+    file_hash = _combined_file_sha256(destinations) if len(destinations) > 1 else _file_sha256(destination)
     actor = _actor_metadata(_user)
+    original_name = (
+        f"{definition.code}_paquete_{len(destinations)}_archivos.xlsx"
+        if package_upload
+        else (uploaded_files[0].filename or f"archivo_{definition.code}.xlsx")
+    )
 
     processed_path = None
-    preparer = _indicator_preparer(definition)
+    preparer = package_preparer or _indicator_preparer(definition)
     if preparer:
-        prepared = preparer(destination)
+        prepared = package_preparer(destinations) if package_preparer else preparer(destination)
         validation = prepared["validation"]
         if validation["valid"]:
-            validation["summary"]["storage_format"] = "processed_dataframe"
+            validation["summary"]["storage_format"] = "processed_package" if package_upload else "processed_dataframe"
             validation["summary"]["source_preserved"] = False
+            validation["summary"]["file_size_bytes"] = sum(path.stat().st_size for path in destinations if path.exists())
             processed_path = PROCESSED_UPLOADS_DIR / f"{timestamp}_{upload_id[:8]}_{indicator}.pkl"
             _write_processed_bundle(
                 processed_path,
                 {
                     "data": prepared["data"],
-                    "cutoff_date": prepared["cutoff_date"],
+                    "cutoff_date": prepared.get("cutoff_date") or prepared.get("cutoff_dates"),
                     "summary": validation["summary"],
                 },
             )
-        _delete_file_quietly(destination)
+        for destination_item in destinations:
+            _delete_file_quietly(destination_item)
     else:
+        if package_upload:
+            for destination_item in destinations:
+                _delete_file_quietly(destination_item)
+            raise HTTPException(status_code=400, detail="El indicador seleccionado no tiene preparador multiparchivo")
         validation = definition.validate_data_file(destination)
 
     uploaded_at = datetime.now().isoformat(timespec="seconds")
     summary = {
         **validation["summary"],
         "filename": destination.name,
-        "original_name": file.filename,
+        "original_name": original_name,
         "uploaded_at": uploaded_at,
         "uploaded_by": actor.get("username"),
         "file_hash": file_hash,
@@ -704,8 +754,9 @@ def api_data_upload_preview(
 
     app.state.pending_uploads[upload_id] = {
         "path": str(destination),
+        "paths": [str(path) for path in destinations],
         "processed_path": str(processed_path) if processed_path else None,
-        "original_name": file.filename,
+        "original_name": original_name,
         "uploaded_at": uploaded_at,
         "uploaded_by": actor.get("username"),
         "uploaded_role": actor.get("role"),
@@ -807,36 +858,40 @@ def api_report_summary(
 def api_report_omisos(
     province: str = Query("ABANCAY"),
     indicator: str = Query("mc03"),
+    subindicator: str | None = Query(None),
     _user=Depends(require_roles(ROLE_SUPERVISOR, ROLE_ADMIN)),
 ):
     _, summary = _report_summary_for_request(indicator, province)
-    return OmisosResponse(omisos=summary["omisos"])
+    return OmisosResponse(omisos=_filter_omisos(summary["omisos"], subindicator=subindicator))
 
 
 @app.get("/api/report/incumplidos", response_model=OmisosResponse, tags=["Reporte"])
 def api_report_incumplidos(
     province: str = Query("ABANCAY"),
     indicator: str = Query("mc03"),
+    subindicator: str | None = Query(None),
     _user=Depends(require_roles(ROLE_SUPERVISOR, ROLE_ADMIN)),
 ):
     _, summary = _report_summary_for_request(indicator, province)
-    return OmisosResponse(omisos=summary["omisos"])
+    return OmisosResponse(omisos=_filter_omisos(summary["omisos"], subindicator=subindicator))
 
 
 @app.get("/api/report/omisos.csv", tags=["Reporte"])
 def api_report_omisos_csv(
     province: str = Query("ABANCAY"),
     indicator: str = Query("mc03"),
+    subindicator: str | None = Query(None),
     _user=Depends(require_roles(ROLE_SUPERVISOR, ROLE_ADMIN)),
 ):
     indicator, summary = _report_summary_for_request(indicator, province)
     output = StringIO()
-    pd.DataFrame(summary["omisos"]).to_csv(output, index=False)
+    pd.DataFrame(_filter_omisos(summary["omisos"], subindicator=subindicator)).to_csv(output, index=False)
     output.seek(0)
+    filename_subindicator = f"_{subindicator}" if subindicator else ""
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="omisos_{indicator}.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="omisos_{indicator}{filename_subindicator}.csv"'},
     )
 
 
@@ -844,17 +899,18 @@ def api_report_omisos_csv(
 def api_report_incumplidos_csv(
     province: str = Query("ABANCAY"),
     month: str | None = Query(None),
+    subindicator: str | None = Query(None),
     indicator: str = Query("mc03"),
     _user=Depends(require_roles(ROLE_SUPERVISOR, ROLE_ADMIN)),
 ):
     indicator, summary = _report_summary_for_request(indicator, province)
     output = StringIO()
-    pd.DataFrame(_filter_omisos_by_month(summary["omisos"], month)).to_csv(output, index=False)
+    pd.DataFrame(_filter_omisos(summary["omisos"], month, subindicator)).to_csv(output, index=False)
     output.seek(0)
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="incumplidos_{indicator}.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="incumplidos_{indicator}{f"_{subindicator}" if subindicator else ""}.csv"'},
     )
 
 
@@ -862,16 +918,18 @@ def api_report_incumplidos_csv(
 def api_report_incumplidos_xlsx(
     province: str = Query("ABANCAY"),
     month: str | None = Query(None),
+    subindicator: str | None = Query(None),
     indicator: str = Query("mc03"),
     _user=Depends(require_roles(ROLE_SUPERVISOR, ROLE_ADMIN)),
 ):
     indicator, summary = _report_summary_for_request(indicator, province)
-    content = _incumplidos_xlsx(_filter_omisos_by_month(summary["omisos"], month))
+    content = _incumplidos_xlsx(_filter_omisos(summary["omisos"], month, subindicator))
     filename_month = f"_{month}" if month else ""
+    filename_subindicator = f"_{subindicator}" if subindicator else ""
     return StreamingResponse(
         iter([content]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="incumplidos_{indicator}{filename_month}.xlsx"'},
+        headers={"Content-Disposition": f'attachment; filename="incumplidos_{indicator}{filename_subindicator}{filename_month}.xlsx"'},
     )
 
 

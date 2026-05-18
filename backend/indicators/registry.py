@@ -1,6 +1,6 @@
 """Registry for available indicator modules."""
 
-from . import mc02, mc03
+from . import mc02, mc03, si02
 try:
     from ..core.indicators import IndicatorDefinition
 except ImportError:
@@ -10,6 +10,7 @@ except ImportError:
 INDICATORS = {
     mc02.CODE: IndicatorDefinition.from_module(mc02),
     mc03.CODE: IndicatorDefinition.from_module(mc03),
+    si02.CODE: IndicatorDefinition.from_module(si02),
 }
 
 

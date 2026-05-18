@@ -45,6 +45,8 @@ class OmisoItem(BaseModel):
     Mes_eva: str | None = None
     month: str | None = None
     year: int | None = None
+    subindicator_code: str | None = None
+    subindicator_name: str | None = None
     afi_DNI: str | None = None
     NumCNV: str | None = None
     fec_Nac: str | None = None
@@ -75,6 +77,7 @@ class ReportSummary(BaseModel):
     committed: bool
     monthly: List[MonthlyCompliance]
     omisos: List[OmisoItem]
+    subindicators: dict[str, Any] = {}
 
 
 class OmisosResponse(BaseModel):
@@ -120,6 +123,12 @@ class DataFileSummary(BaseModel):
     insurance_counts: dict[str, int] = {}
     storage_format: str | None = None
     source_preserved: bool | None = None
+    files_received: int | None = None
+    expected_files: int | None = None
+    subindicators_found: List[str] = []
+    missing_subindicators: List[str] = []
+    subindicators: dict[str, Any] = {}
+    total_loaded_columns: int | None = None
 
 
 class DataUploadPreviewResponse(BaseModel):
@@ -254,3 +263,4 @@ class SearchDNIResult(BaseModel):
     cred_controls: List[CREDRecord]
     tamizaje: TamizajeRecord
     paquete_completo: bool
+    subindicators: List[dict[str, Any]] = []

@@ -606,3 +606,64 @@ npm run dev
 - Se actualizo la documentacion de arquitectura y migracion PostgreSQL para reflejar que las fases 1 a 10 ya quedaron completadas para la base MC-02/MC-03.
 - `backend/db/backup.py` ahora permite `PG_DUMP_PATH` y aplica retencion automatica de respaldos `.dump` segun `BACKUP_RETENTION_DAYS`.
 - Se agrego `httpx` a dependencias backend para habilitar pruebas HTTP con `fastapi.testclient.TestClient`.
+
+### Analisis inicial SI-02
+- Se reviso la ficha tecnica SI-02 y los cuatro Excel asociados a `SI-02.01`, `SI-02.02`, `SI-02.03` y `SI-02.04`.
+- Decision recomendada: implementar `SI-02` como un solo indicador publico con cuatro subindicadores internos, porque el cumplimiento del compromiso depende del conjunto, pero cada archivo tiene reglas, columnas y denominador propios.
+- Se creo `backend/indicators/si02/SI02_sistema_seguimiento_Abancay_Codex.md` con contrato de archivos, reglas preliminares, columnas por subindicador, preguntas abiertas y ruta de implementacion.
+
+### Decisiones SI-02 confirmadas
+- `TA` afecta cumplimiento en `si02_01`.
+- En `si02_03` y `si02_04`, `TA` es componente obligatorio y debe mostrarse en dashboard.
+- En `si02_02`, `TA` queda como dato observado porque el resumen del subindicador no lo incluye como componente de cumplimiento.
+- La carga semanal SI-02 llega con los cuatro Excel juntos; una version activa debe exigir paquete completo.
+- El dashboard SI-02 debe tener vista global del compromiso y tabs/segmentador por subindicador.
+- El sistema debe recalcular cumplimiento desde columnas de atencion desde la primera version; los estados del Excel quedan para conciliacion y pruebas.
+
+### Fase 1 SI-02 - Contrato multiparchivo
+- Se creo el paquete `backend/indicators/si02` con `config.py`, `excel_loader.py` y pruebas de contrato.
+- `excel_loader.py` detecta automaticamente a que subindicador corresponde cada Excel, valida `Detalle_Ate`, fila de encabezado, celda de corte y columnas obligatorias.
+- Se implemento `prepare_upload_package` / `validate_upload_package` para exigir los cuatro archivos `si02_01`, `si02_02`, `si02_03` y `si02_04`.
+- La lectura usa solo columnas operativas y conserva los estados del Excel solo para conciliacion.
+- Validacion con Excel reales: 4,895 filas en `si02_01`, 396 en `si02_02`, 225 en `si02_03`, 5,156 en `si02_04`; paquete total 10,672 filas.
+- `python -m unittest backend.indicators.si02.tests.test_si02_excel_contract` OK con 5 pruebas.
+
+### Fase 2 SI-02 - Evaluadores propios
+- Se agregaron `evaluator.py`, `processor.py` y `utils.py` para recalcular SI-02 desde columnas de atencion.
+- `TA` queda como componente obligatorio en `si02_01`, `si02_03` y `si02_04`; en `si02_02` queda observado sin afectar cumplimiento.
+- Se implemento resumen inicial por subindicador/provincia/mes y busqueda por DNI/CNV sobre el paquete multiparchivo.
+- Los componentes comparables contra el Excel quedan reconciliados con 0 diferencias: `si02_01` hierro/dosaje/TA; `si02_02` DH/hierro; `si02_03` hierro tratamiento, controles DH y TA; `si02_04` hierro preventivo, controles DH y TA.
+- Conteo recalculado con Excel reales: `si02_01` 1,503 cumplen de 4,895; `si02_02` 93 de 396; `si02_03` 65 de 225; `si02_04` 1,281 de 5,156.
+- Regla conciliada de `si02_04.hierro_preventivo`: intervalos segun codigo de entrega actual (`99199.17` 25-70 dias, `99199.19` 25-35 dias) y la sexta columna actua como cierre de esquema sin invalidar por su propio intervalo.
+- Validacion tecnica: `python -m unittest backend.indicators.si02.tests.test_si02_excel_contract backend.indicators.si02.tests.test_si02_rules` OK con 8 pruebas; `python -m py_compile` OK sobre el paquete SI-02.
+
+### Fase 3 SI-02 - Persistencia PostgreSQL
+- Se agrego `backend/indicators/si02/storage.py` como adaptador de persistencia para paquete multiparchivo SI-02.
+- Una carga SI-02 se persiste como una sola version activa, pero conserva `subindicator_code` en registros, componentes, resumenes, omisos y payloads.
+- Los resultados de componentes se guardan con clave namespaced, por ejemplo `si02_04.hierro_preventivo`, para evitar ambiguedades entre subindicadores.
+- Se agregaron consultas activas desde PostgreSQL: `active_upload_id`, `search_active_by_dni` y `build_active_report_summary`.
+- La activacion registra auditoria con `upload_processing_started`, `upload_activated` y `upload_failed`.
+- Validacion local con los cuatro Excel reales: 10,672 registros nominales, 49,797 resultados de componentes, 390 resumenes de dashboard y 7,730 incumplidos persistidos.
+- Validacion ABANCAY desde PostgreSQL: 4 subindicadores reconstruidos, 2,589 incumplidos y busqueda por DNI `94061040` encontrada correctamente.
+- `test_si02_storage.py` queda protegido por `RUN_SI02_DB_TESTS=1` porque crea una nueva version activa en PostgreSQL.
+- Validacion tecnica: `python -m unittest backend.indicators.si02.tests.test_si02_excel_contract backend.indicators.si02.tests.test_si02_rules backend.indicators.si02.tests.test_si02_storage` OK con 8 pruebas y 1 omitida; `python -m py_compile` OK sobre el paquete SI-02.
+
+### Fase 4 SI-02 - Carga multiparchivo y seleccion en la app
+- Se registro `SI-02` en `backend/indicators/registry.py` y en `frontend/src/indicators/registry.js` como indicador publico con carga de paquete de 4 archivos.
+- `POST /api/data/upload-preview` ahora acepta `files` para indicadores multiparchivo y mantiene `file` para cargas simples MC-02/MC-03.
+- La previsualizacion SI-02 valida paquete completo, rechaza cargas parciales por subindicadores faltantes, guarda un hash combinado, procesa solo `Detalle_Ate` y devuelve resumen con archivos recibidos, esperados, subindicadores detectados/faltantes, filas y columnas operativas.
+- `DataUploadView.jsx` cambia automaticamente a seleccion multiple cuando el indicador activo es SI-02 y desactiva validar hasta seleccionar exactamente 4 archivos.
+- `SearchDNI.jsx` muestra SI-02 en secciones por subindicador, evitando mezclar componentes nominales entre los cuatro Excel.
+- `Dashboard.jsx`, `schemas.py` y exportacion de incumplidos incorporan `subindicator_code` y `subindicator_name` para reportar el origen de los incumplimientos.
+- Se compacto el resumen de provincias y meses de `excel_loader.py` para evitar listas repetidas dentro de cada subindicador.
+- Validacion real de previsualizacion con los cuatro Excel SI-02: 4/4 archivos, 10,672 filas, 391 columnas operativas, subindicadores `si02_01`, `si02_02`, `si02_03`, `si02_04`, sin faltantes.
+- Validacion tecnica: `python -m unittest backend.indicators.si02.tests.test_si02_excel_contract backend.indicators.si02.tests.test_si02_rules backend.indicators.si02.tests.test_si02_storage backend.indicators.mc02.tests.test_mc02_rules` OK con 40 pruebas y 1 omitida; `npm run build` OK.
+
+### Fase 5 SI-02 - Vistas frontend por subindicador
+- El dashboard de SI-02 ahora tiene selector interno para ver el compromiso global o cada subindicador `SI-02.01`, `SI-02.02`, `SI-02.03` y `SI-02.04`.
+- La seleccion de subindicador actualiza meta, meses cumplidos, avance mensual, mes en evaluacion, conteo de incumplidos y tabla nominal.
+- La vista global muestra columna `Subindicador`; la vista individual la omite para dejar mas espacio al motivo y componentes observados.
+- `frontend/src/indicators/registry.js` centraliza los metadatos visibles de cada subindicador.
+- Los endpoints de omisos/incumplidos y descargas CSV/XLSX aceptan `subindicator` para que la descarga respete la vista seleccionada.
+- Validacion HTTP: global ABANCAY devuelve 2,589 incumplidos; `subindicator=si02_04` devuelve solo SI-02.04 con 1,312 incumplidos; Excel filtrado responde correctamente.
+- Validacion tecnica: `npm run build` OK; `python -m py_compile backend/main.py` OK; `python -m unittest backend.indicators.si02.tests.test_si02_excel_contract backend.indicators.si02.tests.test_si02_rules backend.indicators.si02.tests.test_si02_storage backend.indicators.mc02.tests.test_mc02_rules` OK con 40 pruebas y 1 omitida.

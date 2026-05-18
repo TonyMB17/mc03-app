@@ -148,13 +148,14 @@ function ChipGroup({ title, items, emptyText = 'Sin datos detectados' }) {
 
 function DataUploadView({ selectedIndicator }) {
   const [currentData, setCurrentData] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [preview, setPreview] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
   const [activationJobId, setActivationJobId] = useState(null);
   const [uploadHistory, setUploadHistory] = useState([]);
   const activeIndicator = indicators[selectedIndicator] ?? indicators.mc03;
+  const isPackageUpload = Boolean(activeIndicator.packageUpload);
 
   const loadCurrentData = () => {
     api
@@ -171,7 +172,7 @@ function DataUploadView({ selectedIndicator }) {
   };
 
   useEffect(() => {
-    setSelectedFile(null);
+    setSelectedFiles([]);
     setPreview(null);
     setError(null);
     setStatus('idle');
@@ -192,7 +193,7 @@ function DataUploadView({ selectedIndicator }) {
         if (!response.data.processing) {
           if (response.data.job_status === 'activated') {
             setStatus('activated');
-            setSelectedFile(null);
+            setSelectedFiles([]);
             setActivationJobId(null);
             loadUploadHistory();
           } else if (response.data.job_status === 'failed') {
@@ -220,7 +221,17 @@ function DataUploadView({ selectedIndicator }) {
   const previewSummary = preview?.summary;
   const canActivate = preview?.valid && preview?.upload_id && status !== 'activating';
   const currentSummary = currentData?.summary;
-  const selectedFileLabel = selectedFile ? `${selectedFile.name} (${formatFileSize(selectedFile.size)})` : 'Ningun archivo seleccionado';
+  const totalSelectedSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+  const selectedFileLabel = selectedFiles.length
+    ? selectedFiles.length === 1
+      ? `${selectedFiles[0].name} (${formatFileSize(selectedFiles[0].size)})`
+      : `${selectedFiles.length} archivos seleccionados (${formatFileSize(totalSelectedSize)})`
+    : isPackageUpload
+      ? 'Ningun paquete seleccionado'
+      : 'Ningun archivo seleccionado';
+  const expectedFileCount = activeIndicator.requiredFiles ?? 1;
+  const hasRequiredFiles = !isPackageUpload || selectedFiles.length === expectedFileCount;
+  const canPreview = selectedFiles.length > 0 && hasRequiredFiles;
 
   const statusPreview = useMemo(
     () => formatCountItems(previewSummary?.status_counts ?? previewSummary?.obs_eval_counts),
@@ -248,13 +259,14 @@ function DataUploadView({ selectedIndicator }) {
   );
 
   const stepState = {
-    upload: preview ? 'done' : selectedFile ? 'active' : 'pending',
+    upload: preview ? 'done' : selectedFiles.length ? 'active' : 'pending',
     validate: preview?.valid ? 'done' : status === 'uploading' ? 'active' : 'pending',
     activate: status === 'activated' ? 'done' : status === 'activating' ? 'active' : 'pending',
   };
 
   const handleFileChange = (event) => {
-    setSelectedFile(event.target.files?.[0] ?? null);
+    const files = Array.from(event.target.files ?? []);
+    setSelectedFiles(isPackageUpload ? files : files.slice(0, 1));
     setPreview(null);
     setError(null);
     setStatus('idle');
@@ -262,13 +274,17 @@ function DataUploadView({ selectedIndicator }) {
   };
 
   const handlePreview = async () => {
-    if (!selectedFile) return;
+    if (!canPreview) return;
     setStatus('uploading');
     setError(null);
     setPreview(null);
 
     const formData = new FormData();
-    formData.append('file', selectedFile);
+    if (isPackageUpload) {
+      selectedFiles.forEach((file) => formData.append('files', file));
+    } else {
+      formData.append('file', selectedFiles[0]);
+    }
 
     try {
       const response = await api.post(`/api/data/upload-preview?indicator=${selectedIndicator}`, formData, {
@@ -297,7 +313,7 @@ function DataUploadView({ selectedIndicator }) {
         return;
       }
       setStatus('activated');
-      setSelectedFile(null);
+      setSelectedFiles([]);
       loadUploadHistory();
     } catch (err) {
       setStatus('previewed');
@@ -333,11 +349,11 @@ function DataUploadView({ selectedIndicator }) {
         <div className="grid gap-3 lg:grid-cols-4">
           <SectionTitleCard
             eyebrow="Carga del archivo"
-            title={`Nuevo Excel ${activeIndicator.shortName}`}
-            description={`Selecciona, valida y activa un .xlsx para ${activeIndicator.title}.`}
+            title={isPackageUpload ? `Nuevo paquete ${activeIndicator.shortName}` : `Nuevo Excel ${activeIndicator.shortName}`}
+            description={isPackageUpload ? `Selecciona los ${activeIndicator.requiredFiles} Excel del paquete semanal.` : `Selecciona, valida y activa un .xlsx para ${activeIndicator.title}.`}
             icon={UploadCloud}
           />
-          <StatusRow number="1" title="Seleccionar archivo" description="Carga el Excel mensual." state={stepState.upload} />
+          <StatusRow number="1" title={isPackageUpload ? 'Seleccionar paquete' : 'Seleccionar archivo'} description={isPackageUpload ? 'Carga los 4 Excel SI-02.' : 'Carga el Excel mensual.'} state={stepState.upload} />
           <StatusRow number="2" title="Validar estructura" description="Revisa hoja, columnas y corte." state={stepState.validate} />
           <StatusRow number="3" title="Activar datos" description="Reprocesa busqueda y dashboard." state={stepState.activate} />
         </div>
@@ -356,7 +372,7 @@ function DataUploadView({ selectedIndicator }) {
             </span>
             <div>
               <h3 className="font-bold text-clinic-ink">Archivo a procesar</h3>
-              <p className="text-sm text-clinic-muted">El archivo no se activa hasta validar.</p>
+              <p className="text-sm text-clinic-muted">{isPackageUpload ? 'El paquete no se activa hasta validar los 4 archivos.' : 'El archivo no se activa hasta validar.'}</p>
             </div>
           </div>
 
@@ -366,18 +382,28 @@ function DataUploadView({ selectedIndicator }) {
                 <FileSpreadsheet className="h-5 w-5" />
               </span>
               <span className="min-w-0">
-                <span className="block text-xs font-bold uppercase tracking-[0.14em] text-clinic-muted">Archivo Excel</span>
+                <span className="block text-xs font-bold uppercase tracking-[0.14em] text-clinic-muted">{isPackageUpload ? 'Paquete Excel' : 'Archivo Excel'}</span>
                 <span className="mt-1 block break-words text-sm font-bold text-clinic-ink">{selectedFileLabel}</span>
+                {isPackageUpload && selectedFiles.length > 0 && (
+                  <span className="mt-2 block text-xs font-semibold leading-5 text-clinic-muted">
+                    {selectedFiles.map((file) => file.name).join(' / ')}
+                  </span>
+                )}
+                {isPackageUpload && selectedFiles.length > 0 && !hasRequiredFiles && (
+                  <span className="mt-2 block text-xs font-bold text-amber-700">
+                    Selecciona exactamente {expectedFileCount} archivos para validar el paquete.
+                  </span>
+                )}
               </span>
             </span>
-            <input type="file" accept=".xlsx" onChange={handleFileChange} className="sr-only" />
+            <input type="file" accept=".xlsx" multiple={isPackageUpload} onChange={handleFileChange} className="sr-only" />
           </label>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             <button
               type="button"
               onClick={handlePreview}
-              disabled={!selectedFile || status === 'uploading' || status === 'activating'}
+              disabled={!canPreview || status === 'uploading' || status === 'activating'}
               className="icon-button btn-primary disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === 'uploading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileCheck2 className="h-4 w-4" />}
