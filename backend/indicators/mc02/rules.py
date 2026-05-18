@@ -6,7 +6,8 @@ denominator ``Registros``, active component flags and current local omissions
 for CRED and DNI within 30 days.
 """
 
-from .config import CODIGOS_ESTANDAR, REGLAS_NEGOCIO
+from .codes import CODIGOS_ESTANDAR
+from .config import REGLAS_NEGOCIO
 
 
 DENOMINATOR_COLUMN = REGLAS_NEGOCIO["COLUMNA_DENOMINADOR"]

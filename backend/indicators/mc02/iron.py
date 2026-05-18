@@ -28,13 +28,12 @@ from typing import Any
 
 import pandas as pd
 
-from .config import CODIGOS_ESTANDAR
+from .codes import CODIGOS_ESTANDAR
 from .utils import clean_value, format_short_date, has_value, to_date
 
 
-ANEMIA_DIAGNOSIS_COLUMNS = ("Dx_Anemia", "CIE_Anemia_1Hier")
-ANEMIA_DATE_COLUMNS = ("Fec_Anemia", "fecha_1Hier")
-ANEMIA_OBSERVATION_COLUMNS = ("Obs_Anemia",)
+ANEMIA_DIAGNOSIS_COLUMNS = ("Dx_Anemia",)
+ANEMIA_DATE_COLUMNS = ("Fec_Anemia",)
 
 IRON_TREATMENT_RULES = {
     "diagnosis_codes": sorted(CODIGOS_ESTANDAR["ANEMIA"]),
@@ -61,22 +60,9 @@ def _contains_anemia_code(value: Any) -> bool:
 
 def has_anemia_diagnosis(row: pd.Series) -> bool:
     """Return true when the operative row carries anemia evidence."""
-    if any(_contains_anemia_code(row.get(column)) for column in ANEMIA_DIAGNOSIS_COLUMNS):
-        return True
-    if any(has_value(row.get(column)) for column in ANEMIA_DATE_COLUMNS):
-        return True
-
-    observation = clean_value(row.get("Obs_Anemia")).upper()
-    if observation and observation not in {"0", "NO", "NO CUMPLE", "SIN DATO"}:
-        return True
-    return False
-
-
-def _meaningful_observation(value: Any) -> str:
-    observation = clean_value(value)
-    if observation.upper() in {"", "0", "NO", "NO CUMPLE", "SIN DATO"}:
-        return ""
-    return observation
+    return any(_contains_anemia_code(row.get(column)) for column in ANEMIA_DIAGNOSIS_COLUMNS) or any(
+        has_value(row.get(column)) for column in ANEMIA_DATE_COLUMNS
+    )
 
 
 def anemia_alerts(row: pd.Series) -> list[str]:
@@ -86,15 +72,12 @@ def anemia_alerts(row: pd.Series) -> list[str]:
 
     diagnosis = next((clean_value(row.get(column)) for column in ANEMIA_DIAGNOSIS_COLUMNS if has_value(row.get(column))), "")
     anemia_date = next((to_date(row.get(column)) for column in ANEMIA_DATE_COLUMNS if to_date(row.get(column))), None)
-    observation = next((_meaningful_observation(row.get(column)) for column in ANEMIA_OBSERVATION_COLUMNS if _meaningful_observation(row.get(column))), "")
 
     pieces = ["Registra diagnostico o ruta de anemia"]
     if diagnosis:
         pieces.append(f"diagnostico: {diagnosis}")
     if anemia_date:
         pieces.append(f"fecha: {format_short_date(anemia_date)}")
-    if observation:
-        pieces.append(f"observacion: {observation}")
 
     detail = "; ".join(pieces) + "."
     return [

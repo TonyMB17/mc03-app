@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from './api/client';
 import { CheckCircle2, Filter, Goal, Info, Layers3, MapPin, ShieldCheck, SlidersHorizontal, XCircle } from 'lucide-react';
 
 const ALL_PROVINCES = '__ALL__';
@@ -30,7 +30,7 @@ function ConfigView({ selectedIndicator, selectedProvince, onProvinceChange, tar
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    axios
+    api
       .get(`/api/config/options?indicator=${selectedIndicator}`)
       .then((response) => {
         setOptions(response.data);

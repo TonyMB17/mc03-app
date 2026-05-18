@@ -15,9 +15,10 @@ import pandas as pd
 from .config import DEFAULT_PROVINCE
 from .dashboard import ALL_PROVINCES_TOKEN, build_report_summary, filter_data, get_filter_options
 from .evaluator import evaluate_package
-from .excel_loader import load_sample_data, validate_data_file
+from .excel_loader import load_sample_data, prepare_data_file, validate_data_file
 from .iron import anemia_alerts
 from .rules import PROVINCE_COLUMN
+from .storage import active_upload_id, build_active_report_summary, persist_active_upload, search_active_by_dni
 from .utils import clean_value, flag_is_true, to_int, to_number
 
 
@@ -85,6 +86,11 @@ __all__ = [
     "filter_data",
     "get_filter_options",
     "load_sample_data",
+    "prepare_data_file",
+    "active_upload_id",
+    "build_active_report_summary",
+    "persist_active_upload",
+    "search_active_by_dni",
     "search_by_dni",
     "validate_data_file",
 ]

@@ -1,6 +1,5 @@
-"""MC-02 schema notes.
+"""Backward-compatible exports for the MC-02 Excel schema."""
 
-The public API currently uses the shared schemas in `backend/schemas.py`.
-Indicator-specific response models can be added here when MC-02 needs fields
-that should not be part of the platform-wide contract.
-"""
+from .excel_schema import COLUMNAS_EXCEL, RESUMEN
+
+__all__ = ["COLUMNAS_EXCEL", "RESUMEN"]

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
+import api from './api/client';
 import {
   AlertCircle,
   AlertTriangle,
@@ -96,10 +96,41 @@ function formatDate(value) {
   return formatShortDate(value);
 }
 
+function splitSemicolonList(value) {
+  return String(value || '')
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function ObservedComponentsCell({ item }) {
+  const components = splitSemicolonList(item.components_observed || item.component);
+
+  return (
+    <div className="flex w-56 flex-col items-start gap-1.5">
+      {components.length > 0 ? (
+        <>
+          {components.map((component, index) => (
+            <span
+              key={`${component}-${index}`}
+              className="max-w-full rounded-full bg-clinic-mint px-2.5 py-1 text-xs font-bold leading-4 text-clinic-teal ring-1 ring-teal-100"
+            >
+              {component}
+            </span>
+          ))}
+        </>
+      ) : (
+        <p className="font-bold text-clinic-ink">-</p>
+      )}
+    </div>
+  );
+}
+
 function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
   const [status, setStatus] = useState('cargando...');
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState(null);
+  const [downloadError, setDownloadError] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [page, setPage] = useState(1);
   const isMc02 = selectedIndicator === 'mc02';
@@ -112,7 +143,7 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
     setError(null);
     setStatus('cargando...');
     const params = new URLSearchParams({ province: selectedProvince, target: targetCoverage, indicator: selectedIndicator });
-    axios
+    api
       .get(`/api/report/summary?${params.toString()}`)
       .then((response) => {
         setSummary(response.data);
@@ -176,6 +207,25 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
   const handleMonthChange = (event) => {
     setSelectedMonth(event.target.value);
     setPage(1);
+  };
+
+  const handleDownload = async () => {
+    setDownloadError(null);
+    try {
+      const response = await api.get(`/api/report/incumplidos.xlsx?${downloadParams.toString()}`, {
+        responseType: 'blob',
+      });
+      const blobUrl = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `incumplidos_${selectedIndicator}${selectedMonth ? `_${selectedMonth}` : ''}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      setDownloadError(err.response?.data?.detail || err.message || 'No se pudo descargar el Excel');
+    }
   };
 
   return (
@@ -326,15 +376,18 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
                 ))}
               </select>
             </label>
-            <a
-              href={`/api/report/incumplidos.xlsx?${downloadParams.toString()}`}
-              className="icon-button btn-primary"
-            >
+            <button type="button" onClick={handleDownload} className="icon-button btn-primary">
               <Download className="h-4 w-4" />
               Descargar Excel
-            </a>
+            </button>
           </div>
         </div>
+
+        {downloadError && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+            {downloadError}
+          </div>
+        )}
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <span className="inline-flex items-center gap-2 text-sm font-semibold text-clinic-muted">
@@ -353,8 +406,8 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
                   <th className="px-4 py-3 font-bold">Paciente</th>
                   <th className="px-4 py-3 font-bold">Nacimiento</th>
                   <th className="px-4 py-3 font-bold">Establecimiento</th>
-                  <th className="px-4 py-3 font-bold">{isMc02 ? 'Componente observado' : 'Atencion observada'}</th>
-                  <th className="px-4 py-3 font-bold">Motivo</th>
+                  <th className="w-60 px-4 py-3 font-bold">{isMc02 ? 'Componentes observados' : 'Atencion observada'}</th>
+                  <th className="min-w-[36rem] px-4 py-3 font-bold">Motivo</th>
                   <th className="px-4 py-3 font-bold">Alertas</th>
                 </tr>
               </thead>
@@ -373,14 +426,10 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
                       </p>
                       {item.Des_MicroRed && <p className="mt-1 text-xs text-clinic-muted">{item.Des_MicroRed}</p>}
                     </td>
-                    <td className="px-4 py-3">
-                      <p className="font-bold text-clinic-ink">{item.component || '-'}</p>
-                      <p className="mt-1 text-xs text-clinic-muted">Fecha: {formatDate(item.attention_date)}</p>
-                      <p className="text-xs text-clinic-muted">Edad: {item.attention_age_days ?? '-'} dias</p>
-                      <p className="text-xs text-clinic-muted">EESS: {item.attention_facility || '-'}</p>
-                      <p className="text-xs text-clinic-muted">Profesional: {item.attention_professional || '-'}</p>
+                    <td className="w-60 px-4 py-3 align-top">
+                      <ObservedComponentsCell item={item} />
                     </td>
-                    <td className="px-4 py-3">{item.reason}</td>
+                    <td className="min-w-[36rem] px-4 py-3 align-top whitespace-pre-line leading-6">{item.reason}</td>
                     <td className="px-4 py-3">
                       {item.clinical_alerts?.length > 0 ? (
                         <span className="inline-flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800">

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
+import api from './api/client';
 import {
   AlertCircle,
   CalendarDays,
@@ -152,12 +152,21 @@ function DataUploadView({ selectedIndicator }) {
   const [preview, setPreview] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
+  const [activationJobId, setActivationJobId] = useState(null);
+  const [uploadHistory, setUploadHistory] = useState([]);
   const activeIndicator = indicators[selectedIndicator] ?? indicators.mc03;
 
   const loadCurrentData = () => {
-    axios
+    api
       .get(`/api/data/current?indicator=${selectedIndicator}`)
       .then((response) => setCurrentData(response.data))
+      .catch((err) => setError(err.response?.data?.detail || err.message));
+  };
+
+  const loadUploadHistory = () => {
+    api
+      .get(`/api/data/uploads?indicator=${selectedIndicator}`)
+      .then((response) => setUploadHistory(response.data.uploads ?? []))
       .catch((err) => setError(err.response?.data?.detail || err.message));
   };
 
@@ -166,8 +175,47 @@ function DataUploadView({ selectedIndicator }) {
     setPreview(null);
     setError(null);
     setStatus('idle');
+    setActivationJobId(null);
     loadCurrentData();
+    loadUploadHistory();
   }, [selectedIndicator]);
+
+  useEffect(() => {
+    if (!activationJobId || status !== 'activating') return undefined;
+
+    let cancelled = false;
+    const loadActivationStatus = async () => {
+      try {
+        const response = await api.get(`/api/data/activation/${activationJobId}?indicator=${selectedIndicator}`);
+        if (cancelled) return;
+        setCurrentData(response.data);
+        if (!response.data.processing) {
+          if (response.data.job_status === 'activated') {
+            setStatus('activated');
+            setSelectedFile(null);
+            setActivationJobId(null);
+            loadUploadHistory();
+          } else if (response.data.job_status === 'failed') {
+            setStatus('previewed');
+            setActivationJobId(null);
+            setError(response.data.error || 'No se pudo activar la carga');
+          }
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setStatus('previewed');
+        setActivationJobId(null);
+        setError(err.response?.data?.detail || err.message);
+      }
+    };
+
+    loadActivationStatus();
+    const interval = window.setInterval(loadActivationStatus, 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [activationJobId, selectedIndicator, status]);
 
   const previewSummary = preview?.summary;
   const canActivate = preview?.valid && preview?.upload_id && status !== 'activating';
@@ -210,6 +258,7 @@ function DataUploadView({ selectedIndicator }) {
     setPreview(null);
     setError(null);
     setStatus('idle');
+    setActivationJobId(null);
   };
 
   const handlePreview = async () => {
@@ -222,10 +271,11 @@ function DataUploadView({ selectedIndicator }) {
     formData.append('file', selectedFile);
 
     try {
-      const response = await axios.post(`/api/data/upload-preview?indicator=${selectedIndicator}`, formData, {
+      const response = await api.post(`/api/data/upload-preview?indicator=${selectedIndicator}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setPreview(response.data);
+      setActivationJobId(null);
       setStatus('previewed');
     } catch (err) {
       setStatus('idle');
@@ -239,15 +289,23 @@ function DataUploadView({ selectedIndicator }) {
     setError(null);
 
     try {
-      const response = await axios.post(`/api/data/activate?indicator=${selectedIndicator}`, { upload_id: preview.upload_id });
+      const response = await api.post(`/api/data/activate?indicator=${selectedIndicator}`, { upload_id: preview.upload_id });
       setCurrentData(response.data);
+      if (response.data.processing && response.data.job_id) {
+        setActivationJobId(response.data.job_id);
+        setStatus('activating');
+        return;
+      }
       setStatus('activated');
       setSelectedFile(null);
+      loadUploadHistory();
     } catch (err) {
       setStatus('previewed');
       setError(err.response?.data?.detail || err.message);
     }
   };
+
+  const shortHash = (value) => (value ? `${value.slice(0, 12)}...` : '-');
 
   return (
     <section className="space-y-4">
@@ -332,13 +390,18 @@ function DataUploadView({ selectedIndicator }) {
               className="icon-button btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === 'activating' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseZap className="h-4 w-4" />}
-              Activar
+              {status === 'activating' ? 'Procesando...' : 'Activar'}
             </button>
           </div>
 
           {status === 'activated' && (
             <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-700">
               Archivo activado correctamente. El sistema ya usa la nueva informacion.
+            </div>
+          )}
+          {status === 'activating' && (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">
+              {currentData?.message || 'Procesando la activacion en segundo plano. La version anterior sigue disponible mientras termina.'}
             </div>
           )}
           </section>
@@ -403,6 +466,73 @@ function DataUploadView({ selectedIndicator }) {
             </div>
           )}
           </section>
+        </div>
+      </article>
+
+      <article className="panel p-4 lg:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <SectionTitleCard
+            eyebrow="Auditoria"
+            title="Historial de cargas"
+            description="Versiones procesadas, archivo, actor, estado y hash SHA-256."
+            icon={FileCheck2}
+            action={(
+              <button type="button" onClick={loadUploadHistory} className="icon-button btn-secondary">
+                <RefreshCcw className="h-4 w-4" />
+                Actualizar
+              </button>
+            )}
+          />
+        </div>
+        <div className="mt-4 overflow-hidden rounded-xl border border-clinic-border bg-white">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-clinic-border text-sm">
+              <thead className="bg-slate-100 text-left text-clinic-ink">
+                <tr>
+                  <th className="px-4 py-3 font-bold">Estado</th>
+                  <th className="px-4 py-3 font-bold">Archivo</th>
+                  <th className="px-4 py-3 font-bold">Subido por</th>
+                  <th className="px-4 py-3 font-bold">Activado por</th>
+                  <th className="px-4 py-3 font-bold">Corte</th>
+                  <th className="px-4 py-3 font-bold">Registros</th>
+                  <th className="px-4 py-3 font-bold">SHA-256</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-clinic-border">
+                {uploadHistory.map((item) => (
+                  <tr key={item.id} className="text-clinic-muted">
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${
+                        item.is_active
+                          ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                          : item.status === 'failed'
+                            ? 'bg-red-50 text-red-700 ring-red-200'
+                            : 'bg-slate-100 text-clinic-muted ring-slate-200'
+                      }`}>
+                        {item.is_active ? 'Activa' : titleCaseKey(item.status)}
+                      </span>
+                    </td>
+                    <td className="max-w-xs px-4 py-3 font-semibold text-clinic-ink">
+                      <span className="block truncate">{item.original_filename || '-'}</span>
+                      <span className="mt-1 block text-xs font-normal text-clinic-muted">{formatDateTime(item.created_at)}</span>
+                    </td>
+                    <td className="px-4 py-3">{item.uploaded_by || '-'}</td>
+                    <td className="px-4 py-3">{item.activated_by || '-'}</td>
+                    <td className="px-4 py-3">{formatDate(item.cutoff_date)}</td>
+                    <td className="px-4 py-3">{item.rows_total ?? '-'}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{shortHash(item.file_hash)}</td>
+                  </tr>
+                ))}
+                {!uploadHistory.length && (
+                  <tr>
+                    <td className="px-4 py-4 text-clinic-muted" colSpan="7">
+                      Aun no hay historial de cargas registrado en PostgreSQL.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </article>
     </section>

@@ -362,3 +362,247 @@ npm run dev
 - Se creo `backend/indicators/mc02/utils.py` para conversiones comunes de fechas, numeros, textos, flags y meses.
 - Se agregaron fronteras `iron.py`, `hemoglobin.py` y `messages.py` para futuras separaciones de hierro, hemoglobina y mensajes.
 - Validacion posterior al refactor: mayo 2026 mantiene denominador 34; el caso `94389087` mantiene antipolio y pentavalente como `incumplimiento_fuera_plazo` por tercera dosis fuera de ventana.
+
+### Ajuste visual de dosaje de hemoglobina MC-02
+- En busqueda nominal, el componente `hemoglobina` ya no muestra `Dosis registradas` porque la ficha tecnica exige un dosaje entre 170 y 209 dias.
+- La tarjeta de hemoglobina ahora muestra fecha de dosaje, edad al dosaje y ventana valida del dosaje.
+- El backend calcula `edad_atencion_dias` desde fecha de nacimiento y fecha de atencion cuando el campo de edad no esta disponible.
+- Las tarjetas de componentes que ya cumplen ya no muestran el mensaje inferior para reducir sobrecarga visual.
+- Validacion realizada con DNI `94429279`: dosaje `04 may 2026`, edad al dosaje `189 dias`, estado `cumple`.
+- Validacion tecnica: `python -m unittest indicators.mc02.tests.test_mc02_rules` OK y `npm.cmd run build` OK.
+
+### Compactacion de hemoglobina cumplida MC-02
+- Si el componente `hemoglobina` cumple, la busqueda nominal ya no muestra la caja inferior con fecha, edad y ventana para evitar duplicar informacion.
+- La ventana valida del dosaje queda visible solo cuando el componente no cumple o requiere seguimiento.
+- Validacion realizada: `npm.cmd run build` OK.
+
+### Personalizacion de tarjetas de hierro MC-02
+- El backend MC-02 ahora devuelve `entregas` para `hierro_menor_6m` y `hierro_mayor_6m`, separadas de `dosis` de vacunas.
+- Las entregas incluyen fecha, edad de atencion, codigo, LAB, lote, intervalo cuando existe, EESS y tipo/ruta: preventiva 4 meses, preventiva 6 a 11 meses o tratamiento de anemia.
+- La busqueda nominal ya no muestra `Dosis registradas` para hierro; muestra `Entregas registradas`, fecha/edad de entrega, tipo de entrega y resultado operativo del Excel.
+- Para no sobrecargar la vista, el detalle desplegable de entregas solo aparece cuando hay multiples entregas o cuando el componente necesita seguimiento.
+- Validacion realizada con DNI `94429279`: hierro mayor tiene 1 entrega preventiva el `04 may 2026` a los `189 dias`; hierro menor no registra entrega y queda fuera de plazo.
+- Validacion tecnica: `python -m unittest indicators.mc02.tests.test_mc02_rules` OK, `python -m compileall indicators\mc02` OK y `npm.cmd run build` OK.
+
+### Fallback visual de entregas de hierro MC-02
+- Se ajusto `SearchDNI.jsx` para que, si una tarjeta de hierro tiene fecha de entrega pero el arreglo `entregas` no llega al frontend, la vista cuente esa atencion como 1 entrega registrada.
+- Esto evita inconsistencias visuales durante recargas parciales del backend o respuestas antiguas, donde el cumplimiento y la fecha ya estaban disponibles pero el nuevo campo `entregas` aun no.
+- Validacion backend con DNI `94429279`: `hierro_mayor_6m` devuelve 1 entrega preventiva, fecha `04 may 2026`, edad `189 dias`.
+- Validacion realizada: `npm.cmd run build` OK.
+
+### Correccion alerta anemia y tipo de hierro MC-02
+- Se corrigio `backend/indicators/mc02/iron.py` para que `Obs_Anemia = 1` por si solo no genere alerta clinica de anemia.
+- La alerta de anemia ahora requiere evidencia clinica: codigo/diagnostico `D509`/`D649`, fecha de anemia o fecha de tratamiento de anemia.
+- Se ajusto el fallback visual de `SearchDNI.jsx` para que hierro mayor sin alerta de anemia se muestre como `Preventiva 6 a 11 meses`, evitando el texto ambiguo `Preventiva o tratamiento`.
+- Se agregaron pruebas para el caso `Obs_Anemia = 1` sin diagnostico, para diagnostico real `D509`, y para entrega preventiva de hierro mayor.
+- Validacion con DNI `94429279`: `clinical_alerts` queda vacio y `hierro_mayor_6m` muestra entrega `Preventiva 6 a 11 meses`.
+- Validacion tecnica: `python -m unittest indicators.mc02.tests.test_mc02_rules` OK con 16 pruebas y `npm.cmd run build` OK.
+
+### Fuente formal de alerta de anemia MC-02
+- Se ajusto la alerta clinica de anemia para usar solo el bloque `Dx_ANEMIA`: columnas `Fec_Anemia` y `Dx_Anemia`.
+- `Obs_Anemia` queda fuera de la alerta porque el Excel lo usa como resultado operativo para omitir tratamiento cuando no existe diagnostico de anemia.
+- Las columnas de tratamiento (`CIE_Anemia_1Hier`, `fecha_1Hier`) tampoco disparan la alerta por si solas; se consideran trazabilidad de tratamiento, no fuente primaria de diagnostico.
+- Se agregaron pruebas para confirmar que `CIE_Anemia_1Hier` sin `Dx_Anemia` no alerta, que `Dx_Anemia = D509` si alerta y que `Fec_Anemia` si alerta.
+- Validacion con DNI `94429279`: `clinical_alerts` queda vacio.
+- Validacion tecnica: `python -m unittest indicators.mc02.tests.test_mc02_rules` OK con 18 pruebas y `npm.cmd run build` OK.
+
+### Nota de configuracion sobre Obs_Anemia
+- Se agrego en `backend/indicators/mc02/config.py` la nota `NOTA_OBS_ANEMIA` dentro de `REGLAS_NEGOCIO["ALERTA_ANEMIA"]`.
+- La nota deja explicito que `Obs_Anemia` se refiere al resultado operativo del tratamiento solo cuando existe diagnostico de anemia, y que por si sola no debe generar alerta clinica ni penalizar cumplimiento.
+- Validacion realizada: `python -m compileall indicators\mc02` OK y `python -m unittest indicators.mc02.tests.test_mc02_rules` OK.
+
+### Validacion nominal y omisos por cohorte MC-02
+- Se valido el Excel operativo `data_samples/MC 02_FT MC_02 _INFANTIL.xlsx` con fecha de corte `2026-05-11` para la provincia `ABANCAY`.
+- DNIs revisados explicitamente: `94424954`, `94429011`, `94405414` y `94429279`; todos coinciden entre busqueda nominal y la lista de incumplidos por `Mes_Nac`.
+- Se agrego una muestra aleatoria reproducible de 10 DNIs del denominador y luego una validacion global de los 1222 registros del denominador.
+- Resultado global: 1022 completos, 200 incumplidos, 200 omisos en dashboard, suma mensual de numerador 1022 y 0 inconsistencias.
+- Se optimizo `evaluate_package` para reutilizar el cumplimiento ya calculado en los detalles de componentes.
+- Se optimizo `build_report_summary` para evaluar cada fila una sola vez y usar el mismo paquete para numerador y omisos.
+- Se alineo `REGLAS_NEGOCIO["ALERTA_ANEMIA"]` con la decision final: diagnostico solo desde `Dx_Anemia` y fecha solo desde `Fec_Anemia`; `Obs_Anemia` queda como resultado operativo de tratamiento cuando ya existe diagnostico.
+
+### Reorganizacion interna MC-02 por componentes
+- Se separo el catalogo de componentes activos en `backend/indicators/mc02/components/`.
+- `components/vaccines.py` contiene vacunas, dosis y ventanas por edad.
+- `components/iron.py` contiene hierro menor/mayor, entregas preventivas, tratamiento de anemia e intervalos.
+- `components/hemoglobin.py` contiene el dosaje de hemoglobina y su ventana valida de 170 a 209 dias.
+- Se movieron los codigos estandar a `codes.py` y el contrato del Excel a `excel_schema.py`.
+- `config.py` queda como configuracion general y ensamblador de reglas, sin cargar el detalle de vacunas, suplementacion o dosaje.
+- Se agrego `engine/component.py` como motor comun de evaluacion y `engine/package.py` como fachada del paquete completo.
+- `messages.py` ahora construye mensajes visibles de cumplimiento, pendiente, programado y fuera de plazo.
+- `vaccines.py`, `hemoglobin.py` y `schema.py` quedan como fachadas de compatibilidad temporal para imports existentes.
+- Se actualizo `MC02_sistema_seguimiento_Abancay_Codex.md` con la nueva estructura y reglas de organizacion.
+
+### Correccion conteo de dosis registradas MC-02
+- Se corrigio la busqueda nominal para no contar dosis requeridas o evaluadas como dosis registradas.
+- El backend ahora devuelve `dosis_registradas` por componente, calculado solo con dosis que tienen fecha o codigo en el Excel.
+- El detalle `dosis` puede seguir incluyendo dosis requeridas sin registro para explicar el incumplimiento, pero la tarjeta muestra el conteo real registrado.
+- En el frontend, el resumen del desplegable distingue entre dosis registradas y dosis requeridas sin registro.
+- Validacion con DNI `94405414`: neumococo `0/2`, rotavirus `0/1`, antipolio `1/2`, pentavalente `1/2`, donde el primer valor es dosis registrada y el segundo dosis evaluada/requerida.
+- Validacion global ABANCAY: 1222 registros del denominador, 0 diferencias entre `dosis_registradas` y las celdas reales de fecha/codigo del Excel.
+- Ajuste de compatibilidad API: `codigo` vuelve a ser cadena vacia cuando no existe dato en Excel, porque el schema `VacunaRecord.codigo` exige `str`.
+- Se agregaron al schema de respuesta los campos `dosis_registradas`, `dosis_evaluadas`, `entregas` y `tipo_atencion`.
+
+### Extraccion de hierro menor de 6 meses desde bloque completo
+- Se corrigio el componente `hierro_menor_6m` para no depender solo de `fecha_1prev` / `CIE_Hierro_1prev`.
+- La atencion representativa ahora se extrae de todo el bloque `SUPLEMENTACION_HIERRO_MENOR_6_MESES_*`: `fecha_1prev` a `fecha_5prev`, sus edades, codigos, LAB, lote y EESS.
+- Para hierro de 4 meses se prioriza una entrega registrada entre 110 y 130 dias de edad, segun ficha tecnica.
+- Si una entrega valida aparece en una columna posterior, por ejemplo `fecha_4prev`, el componente puede cumplir y la tarjeta muestra esa entrega como fecha/codigo/edad/EESS principal.
+- Validacion con DNI `94332765`: entrega en `fecha_4prev`, edad `122`, codigo `99199.17`, EESS `CASINCHIHUA`; el componente queda `cumple`.
+- Validacion adicional: `94429011` muestra entrega en `fecha_4prev`, edad `123`, codigo `99199.17`, EESS `TAMBURCO`.
+- Validacion global ABANCAY posterior al ajuste: 1222 registros en denominador, 1023 completos, 199 omisos, 0 inconsistencias entre busqueda nominal y dashboard.
+
+### Ajuste rotavirus e hierro mayor no exigible MC-02
+- Se comparo el DNI `94424954` contra el Excel operativo: `obs_rot1 = 0`, sin dosis de rotavirus, edad al corte `200` dias.
+- Se ajusto la ventana de rotavirus a `0-189` no exigible, `190-240` con 1 dosis requerida, y `241-364` con 2 dosis acumuladas; la primera dosis mantiene edad maxima valida de `210` dias.
+- Para `94424954`, rotavirus queda `pendiente_en_plazo`, `dosis_registradas = 0`, `dosis_evaluadas = 1`, y ya no aparece como programado/cumplido.
+- Se corrigio el motor para que un componente no exigible sin fecha/codigo/entrega trazable no se pinte como `cumple` solo por flag operativo; queda `programado` y sigue cumpliendo para paquete parcial.
+- Para `94424954`, `hierro_mayor_6m` queda `programado`, sin fecha ni entregas, porque tiene 200 dias y aun no es exigible.
+- Se agregaron pruebas para rotavirus a los 189, 200 y 211 dias, y para hierro mayor no exigible sin trazabilidad.
+
+### Dosaje de hemoglobina con trazabilidad obligatoria MC-02
+- Se comparo el DNI `94424954`: `Obs_dh1 = 1`, pero `fecha_1DH`, `Lab_1DH`, `edad_1DH`, `CIE_DH_1DH`, `Lote_Pag_Reg_1DH` y `EESS_Ate_1DH` estan vacios.
+- El cumplimiento de hemoglobina ahora se confirma desde las columnas trazables del dosaje, no solo desde `Obs_dh1`.
+- Si el dosaje ya es exigible, debe existir atencion trazable y valida entre 170 y 209 dias para cumplir.
+- Si el dosaje aun no es exigible y no hay atencion trazable, el componente queda `programado`; este es el caso de `94424954`, con 200 dias al corte.
+- Se agregaron pruebas para `Obs_dh1 = 1` sin trazabilidad cuando el dosaje ya es exigible y para dosaje trazable valido sin depender del flag operativo.
+
+### Ventana visible para dosaje programado MC-02
+- En busqueda nominal, si hemoglobina queda `programado`, la tarjeta muestra la ventana programada del dosaje aunque el componente cumpla para paquete parcial.
+- Esto permite que el personal vea el periodo exacto de atencion pendiente sin confundirlo con una atencion ya registrada.
+- Para `94424954`, la vista debe mostrar la ventana `11 abr 2026 - 20 may 2026` y mantener fecha/codigo de dosaje vacios.
+
+### Componentes observados multiples en dashboard MC-02
+- En `Incumplidos por cohorte de nacimiento`, cada registro ahora expone todos los componentes no cumplidos en `components_observed`.
+- El campo `component` se mantiene como compatibilidad con la primera clave tecnica, y la tabla/Excel consumen el nuevo resumen legible.
+- El motivo de incumplimiento se arma por componente con el formato `Nombre del componente: motivo`, separado por saltos de linea para que la tabla y el Excel descargable sean revisables.
+- El Excel `incumplidos` usa la columna `Componentes observados` y aplica ajuste de texto en componentes, alertas y motivo.
+- Validacion de muestra ABANCAY: DNI `94247123` muestra neumococo, rotavirus, antipolio, pentavalente, hierro menor, hierro mayor y hemoglobina como componentes observados.
+- Validacion tecnica: `python -m unittest backend.indicators.mc02.tests.test_mc02_rules` OK con 26 pruebas y `npm run build` OK.
+
+### Optimizacion de carga Excel MC-02
+- Se agrego lectura selectiva de columnas en `backend/core/excel.py` mediante `usecols`.
+- `backend/indicators/mc02/excel_loader.py` ahora construye una tabla operativa solo con columnas usadas por MC-02: datos nominales, denominador, resumen, anemia, vacunas, hierro y hemoglobina.
+- El `upload-preview` de MC-02 prepara una tabla procesada `.pkl` y elimina el `.xlsx` temporal, por lo que `activate` ya no reabre ni revalida el Excel completo.
+- La activacion puede recibir un `prepared_bundle` con dataframe, fecha de corte y resumen validado, manteniendo el nombre original del archivo para la vista.
+- Validacion con Excel real: 5789 filas, 375 columnas disponibles, 230 columnas operativas cargadas, 0 faltantes, corte `2026-05-11`.
+- Validacion funcional ABANCAY: 199 omisos y numerador total 1023, consistente con la regla actual.
+- Validacion tecnica: `python -m unittest backend.indicators.mc02.tests.test_mc02_rules` OK con 27 pruebas y `python -m compileall backend/core backend/indicators/mc02 backend/main.py` OK.
+
+### Fase 1 PostgreSQL
+- Se documento la ruta completa de migracion en `docs/README_PostgreSQL_Migration.md`.
+- Se agregaron dependencias para persistencia: SQLAlchemy, Alembic, psycopg y python-dotenv.
+- Se creo `backend/.env.example` con `DATABASE_URL` local para PostgreSQL.
+- Se agrego el paquete `backend/db/` con base declarativa, engine, `SessionLocal` y dependencia `get_db`.
+- Se configuro Alembic en `backend/alembic.ini` y `backend/alembic/` para usar la metadata de SQLAlchemy.
+- Se agrego `backend/processed_uploads/`, `.env` y `backend/.env` al `.gitignore`.
+- Nota tecnica: en este entorno se uso `psycopg[binary]==3.3.4` porque Python 3.14 no tenia wheel disponible para `3.2.3`.
+- Validacion tecnica: instalacion con `pip install -r backend/requirements.txt` OK; imports de DB OK; `alembic -c alembic.ini heads` OK; `python -m unittest backend.indicators.mc02.tests.test_mc02_rules` OK con 27 pruebas.
+
+### Fase 2 PostgreSQL
+- Se eligio `indicator_tracking` como nombre de base de datos en ingles para no amarrar el proyecto a MC-02 o MC-03.
+- Se actualizo `DATABASE_URL` de ejemplo, configuracion Alembic y `backend/.env` local al nombre definido.
+- Se crearon modelos SQLAlchemy generales para persistencia multiindicador: `IndicatorUpload`, `IndicatorActiveUpload`, `IndicatorRecord`, `ComponentResult`, `DashboardSummary` e `IndicatorOmission`.
+- Se agrego la migracion inicial `backend/alembic/versions/0001_indicator_storage.py` con tablas, llaves foraneas, restricciones unicas e indices para DNI/CNV, provincia, periodo, componentes y estados.
+- La documentacion de migracion quedo actualizada con comandos `createdb -U postgres indicator_tracking` y `alembic -c alembic.ini upgrade head`.
+- Validacion tecnica: metadata SQLAlchemy registra 6 tablas; `alembic -c alembic.ini upgrade head --sql` genera SQL correctamente; `python -m unittest backend.indicators.mc02.tests.test_mc02_rules` OK con 27 pruebas.
+
+### Renombrado de base PostgreSQL
+- Se adopto `indicator_tracking` como nombre en ingles para la base de datos.
+- Se actualizaron `backend/.env.example`, `backend/db/session.py`, `backend/alembic.ini`, `backend/README.md` y `docs/README_PostgreSQL_Migration.md`.
+- Se creo la base local `indicator_tracking` usando `psycopg`, porque `createdb`/`psql` no estaban disponibles en el PATH del entorno.
+- Se aplico la migracion inicial con `alembic -c alembic.ini upgrade head` y quedaron creadas las tablas generales de persistencia.
+
+### Fase 3 PostgreSQL MC-02
+- Se agrego `backend/indicators/mc02/storage.py` como adaptador de persistencia para cargas MC-02 ya procesadas.
+- La activacion de una carga MC-02 ahora guarda en PostgreSQL registros nominales, resultados por componente, resumenes de dashboard, omisos y referencia activa.
+- Las lecturas actuales de busqueda por DNI, dashboard y exportacion siguen usando memoria; la migracion de lecturas queda para Fase 4 y Fase 5.
+- Validacion local de persistencia MC-02: 5,789 registros, 40,523 resultados de componentes, 117 resumenes de dashboard y 728 omisos en `indicator_tracking`.
+- Validacion tecnica: `python -m unittest backend.indicators.mc02.tests.test_mc02_rules` OK con 27 pruebas; `python -m compileall backend/db backend/indicators/mc02 backend/main.py` OK.
+
+### Fase 4 PostgreSQL MC-02
+- Se agrego busqueda nominal desde carga activa PostgreSQL con `search_active_by_dni`.
+- El endpoint `GET /api/search/dni/{dni}` usa PostgreSQL primero cuando `indicator=mc02` y existe carga activa; si aun no existe carga activa en BD o la BD no esta disponible en esta etapa, conserva fallback al dataframe.
+- La respuesta desde BD reconstruye el mismo contrato de `SearchDNIResult`, incluyendo datos personales, componentes, alertas clinicas, tamizaje de compatibilidad y estado de paquete.
+- Si existe carga activa en BD y el DNI/CNV no se encuentra en esa carga y provincia, se devuelve `404` para no mezclar resultados de memoria con otra version.
+- Validacion con DNIs `94424954`, `94429011`, `94405414`, `94429279` y `94332765`: BD y dataframe coinciden en estado, cumplimiento, codigo, fecha y edad de atencion de todos los componentes.
+- Validacion de endpoint directa con DNI `94405414`: neumococo `0` dosis registradas, rotavirus `0` dosis registradas y paquete incompleto.
+- Validacion tecnica: `python -m unittest backend.indicators.mc02.tests.test_mc02_rules` OK con 29 pruebas; `python -m compileall backend/db backend/indicators/mc02 backend/main.py` OK.
+
+### Fase 5 PostgreSQL MC-02
+- Se agrego `build_active_report_summary` para reconstruir el dashboard desde `dashboard_summaries` e `indicator_omissions`.
+- Los endpoints `summary`, `omisos`, `incumplidos`, CSV y Excel descargable usan PostgreSQL primero para `indicator=mc02` cuando existe carga activa.
+- Se centralizo la resolucion de reportes en `_report_summary_for_request`, manteniendo fallback al dataframe cuando aun no existe carga activa en BD o la BD no esta disponible.
+- La cobertura mensual queda precalculada en BD y el semaforo/cumplimiento se recalcula segun la meta solicitada por el usuario.
+- Validacion ABANCAY con metas 80.9 y 70.7: PostgreSQL y dataframe coinciden en 13 cohortes, 199 incumplidos, denominador, numerador, cobertura y semaforo.
+- Validacion directa de endpoints: `api_report_summary` devuelve 13 cohortes, 9 cohortes cumplidas con meta 80.9, 199 omisos y corte `2026-05-11`; `api_report_incumplidos_csv` y `api_report_incumplidos_xlsx` responden con los media types esperados.
+- Validacion tecnica: `python -m unittest backend.indicators.mc02.tests.test_mc02_rules` OK con 30 pruebas; `python -m py_compile backend/main.py backend/indicators/mc02/storage.py backend/indicators/mc02/processor.py backend/indicators/mc02/__init__.py` OK.
+
+### Fase 6 PostgreSQL MC-02
+- Se formalizo la activacion versionada de MC-02 con estados `processing`, `validated`, `active`, `failed` y `superseded`.
+- `persist_active_upload` crea primero el registro de carga en estado `processing`; despues de procesar registros, componentes, dashboard y omisos pasa por `validated` y finalmente activa la version.
+- Si ocurre un error en procesamiento o escritura, la carga queda marcada como `failed` con `error_message` y la referencia `indicator_active_uploads` no cambia.
+- Al activar una nueva version, la version previa pasa a `superseded`.
+- `api_data_activate` ahora persiste MC-02 en PostgreSQL antes de actualizar la version activa en memoria, evitando que el usuario vea una version que no quedo registrada en BD.
+- El estado `pending` se mantiene en `app.state.pending_uploads` entre `upload-preview` y `activate`.
+- Validacion local de BD: `indicator_uploads` mantiene la carga activa existente en estado `active` y `indicator_active_uploads` apunta a esa misma version.
+- Validacion tecnica: `python -m unittest backend.indicators.mc02.tests.test_mc02_rules` OK con 31 pruebas; `python -m py_compile backend/main.py backend/indicators/mc02/storage.py backend/indicators/mc02/processor.py backend/indicators/mc02/__init__.py` OK.
+
+### Fase 7 PostgreSQL MC-02
+- Se movio la activacion pesada de MC-02 a `FastAPI BackgroundTasks`.
+- `POST /api/data/activate?indicator=mc02` devuelve inmediatamente `processing=true`, `job_id`, `job_status` y `message` cuando la carga queda en segundo plano.
+- Se agrego `GET /api/data/activation/{job_id}` para consultar el estado de activacion.
+- La vista `DataUploadView.jsx` hace polling cada 2 segundos hasta que el trabajo queda `activated` o `failed`.
+- Mientras el trabajo corre, la version activa anterior sigue disponible para busqueda, dashboard y descargas.
+- Los indicadores sin persister, como MC-03 en esta etapa, mantienen activacion sincrona.
+- Validacion directa del endpoint de estado: trabajo `queued` responde `processing=True`, `job_id` y mensaje de cola.
+- Validacion tecnica: `python -m unittest backend.indicators.mc02.tests.test_mc02_rules` OK con 31 pruebas; `python -m py_compile backend/main.py backend/schemas.py backend/indicators/mc02/storage.py` OK; `npm run build` OK.
+
+### Reorganizacion MC-03
+- Se refactorizo `backend/indicators/mc03/processor.py` para dejarlo como orquestador de carga, validacion, filtros, resumen y busqueda por DNI.
+- La logica especializada del indicador MC-03 quedo separada en `denominator.py`, `vaccines.py`, `cred.py`, `screening.py`, `messages.py` y `utils.py`, siguiendo `MC03_sistema_seguimiento_Abancay_Codex.md`.
+- `config.py` ahora centraliza constantes publicas del indicador, parametros de Excel, meses de evaluacion y columnas obligatorias.
+- `rules.py` se actualizo como punto de entrada de reglas de negocio, reexportando evaluadores por componente.
+- Se eliminaron los markdown redundantes `README_MC03.md`, `logic_rules.md` y `docs/indicadores/MC03_PAQUETE_RECIEN_NACIDO.md` porque quedaron reemplazados por `MC03_sistema_seguimiento_Abancay_Codex.md`.
+- Validacion funcional con Excel real MC-03 ABANCAY: 2553 filas, corte `2026-05-11`, resumen mensual y busquedas de control conservan el mismo resultado previo a la reorganizacion.
+- Validacion tecnica: `python -m py_compile backend/indicators/mc03/*.py` OK.
+
+### Fase 8 PostgreSQL MC-03
+- Se agrego `backend/indicators/mc03/storage.py` como adaptador de persistencia para cargas MC-03.
+- El modulo MC-03 ahora expone funciones de BD compatibles con el flujo comun: `persist_active_upload`, `active_upload_id`, `search_active_by_dni` y `build_active_report_summary`.
+- Al activar una carga MC-03, el backend la procesa en segundo plano y persiste registros nominales, componentes, resumenes de dashboard, omisos y referencia activa.
+- Las consultas de busqueda por DNI, dashboard, incumplidos y exportaciones usan PostgreSQL primero para `indicator=mc03` cuando existe carga activa; si no existe, mantienen fallback al dataframe.
+- Se valido la persistencia con el Excel MC-03 real: 2,553 registros, 15,318 resultados de componentes, 99 resumenes y 788 omisos totales.
+- Validacion ABANCAY: PostgreSQL y dataframe coinciden en resumen mensual, 188 omisos, `months_met = 0` y `committed = False`.
+- Validacion directa de funciones API: `api_report_summary`, `api_search_dni` y `api_data_current` responden correctamente para `indicator=mc03`.
+- Nota tecnica: no se pudo usar `fastapi.testclient.TestClient` porque falta la dependencia `httpx` en el entorno; se verifico la misma logica llamando las funciones de endpoint directamente.
+- Validacion tecnica: `python -m py_compile backend/indicators/mc03/storage.py backend/indicators/mc03/__init__.py backend/indicators/mc03/processor.py backend/main.py` OK; `python -m unittest backend.indicators.mc02.tests.test_mc02_rules` OK con 31 pruebas.
+
+### Fase 9 Seguridad y roles
+- Se agrego `backend/security.py` con autenticacion por token Bearer firmado y usuarios configurables por `AUTH_USERS_JSON`.
+- Se agregaron los endpoints `POST /api/auth/login` y `GET /api/auth/me`.
+- Se protegieron endpoints por rol:
+  - `clinical`: busqueda por DNI/CNV.
+  - `supervisor`: busqueda, dashboard y descargas.
+  - `admin`: busqueda, dashboard, descargas, configuracion y carga/activacion de datos.
+- `AUTH_ENABLED=false` mantiene el modo desarrollo como administrador local; `AUTH_ENABLED=true` exige token.
+- El frontend ahora usa `frontend/src/api/client.js`, pantalla de login, token en `localStorage`, navegacion condicionada por permisos y descargas autenticadas.
+- Se documento la configuracion en `backend/.env.example` y `backend/README.md`.
+- Validacion HTTP real con servidor temporal: sin token `401`; usuario clinico puede buscar y recibe `403` en dashboard; supervisor ve dashboard y recibe `403` en carga; admin accede a carga.
+- Validacion tecnica: `python -m py_compile backend/security.py backend/schemas.py backend/main.py` OK; pruebas de token/roles OK; `python -m unittest backend.indicators.mc02.tests.test_mc02_rules` OK con 31 pruebas; `npm run build` OK.
+
+### Fase 10 Auditoria y respaldo
+- Se agrego la tabla `indicator_audit_events` con la migracion `0002_indicator_audit_events`.
+- Se agrego `backend/db/audit.py` para registrar eventos y consultar historial de cargas.
+- `upload-preview` calcula hash SHA-256 del archivo original y guarda actor de subida en la carga pendiente.
+- La activacion pasa `uploaded_by`, `activated_by`, rol y hash a los persisters.
+- MC-02 y MC-03 registran eventos `upload_processing_started`, `upload_activated` y `upload_failed`.
+- Se agregaron endpoints admin: `GET /api/data/uploads` y `GET /api/audit/events`.
+- La vista de carga muestra historial de cargas con estado, archivo, usuario que subio, usuario que activo, corte, registros y hash.
+- Se agrego `backend/db/backup.py` para respaldos manuales con `pg_dump`; `backend/backups/` queda fuera de git.
+- Se documentaron `BACKUP_RETENTION_DAYS` y `UPLOAD_RETENTION_DAYS`.
+- Validacion local MC-03: nueva carga activa con hash y actor `admin`, historial activo OK, eventos de auditoria registrados y resumen ABANCAY mantiene 188 omisos.
+
+### Cierre previo a nuevo indicador
+- Se actualizo la documentacion de arquitectura y migracion PostgreSQL para reflejar que las fases 1 a 10 ya quedaron completadas para la base MC-02/MC-03.
+- `backend/db/backup.py` ahora permite `PG_DUMP_PATH` y aplica retencion automatica de respaldos `.dump` segun `BACKUP_RETENTION_DAYS`.
+- Se agrego `httpx` a dependencias backend para habilitar pruebas HTTP con `fastapi.testclient.TestClient`.

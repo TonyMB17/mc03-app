@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import api from './api/client';
 import {
   AlertTriangle,
   Baby,
@@ -81,6 +81,7 @@ function formatDate(value) {
 }
 
 function DetailMessage({ item }) {
+  if (item.cumple) return null;
   const showWindow = !item.cumple && (item.fecha_inicio || item.fecha_limite);
   return (
     <div className="mt-3 rounded-xl border border-clinic-violet/10 bg-clinic-mint/35 p-3">
@@ -113,11 +114,16 @@ const doseStatusLabels = {
 
 function DoseDetails({ doses = [] }) {
   if (!doses.length) return null;
+  const registeredCount = doses.filter((dose) => dose.registrada).length;
+  const issueCount = doses.filter((dose) => !dose.cumple).length;
+  const summaryText = registeredCount > 0
+    ? `${registeredCount} dosis registrada${registeredCount === 1 ? '' : 's'}${issueCount ? ` / ${issueCount} con observacion` : ''}`
+    : `${issueCount || doses.length} dosis requerida${(issueCount || doses.length) === 1 ? '' : 's'} sin registro`;
 
   return (
     <details className="mt-3 rounded-xl border border-clinic-border bg-white/80 p-3">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-clinic-ink">
-        <span>{doses.length} dosis registrada{doses.length === 1 ? '' : 's'}</span>
+        <span>{summaryText}</span>
         <ChevronDown className="h-4 w-4 text-clinic-violet" />
       </summary>
       <div className="mt-3 space-y-2">
@@ -147,6 +153,90 @@ function DoseDetails({ doses = [] }) {
             )}
             {dose.motivo && !dose.cumple && (
               <p className="mt-2 rounded-md bg-white/70 px-2 py-1 font-semibold text-clinic-muted">{dose.motivo}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function HemoglobinDetails({ data }) {
+  const isProgrammed = data.estado === 'programado';
+  const hasWindow = data.fecha_inicio || data.fecha_limite;
+  if (data.cumple && !isProgrammed) return null;
+  if (!hasWindow && !data.fecha && data.edad_atencion_dias == null) return null;
+
+  if (isProgrammed) {
+    return (
+      <div className="mt-3 rounded-xl border border-clinic-border bg-clinic-mint/25 p-3 text-sm text-clinic-muted">
+        <span className="block text-xs font-bold uppercase tracking-[0.12em] text-clinic-muted">Ventana programada del dosaje</span>
+        <span className="font-bold text-clinic-ink">{formatDate(data.fecha_inicio)} - {formatDate(data.fecha_limite)}</span>
+        <span className="ml-2 text-clinic-muted">(170 a 209 dias)</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 grid gap-2 rounded-xl border border-clinic-border bg-clinic-mint/25 p-3 text-sm text-clinic-muted sm:grid-cols-2">
+      <p>
+        <span className="block text-xs font-bold uppercase tracking-[0.12em] text-clinic-muted">Fecha de dosaje</span>
+        <span className="font-bold text-clinic-ink">{formatDate(data.fecha)}</span>
+      </p>
+      <p>
+        <span className="block text-xs font-bold uppercase tracking-[0.12em] text-clinic-muted">Edad al dosaje</span>
+        <span className="font-bold text-clinic-ink">
+          {data.edad_atencion_dias ?? '-'}{data.edad_atencion_dias != null ? ' dias' : ''}
+        </span>
+      </p>
+      {hasWindow && (
+        <p className="sm:col-span-2">
+          <span className="block text-xs font-bold uppercase tracking-[0.12em] text-clinic-muted">Ventana valida del dosaje</span>
+          <span className="font-bold text-clinic-ink">{formatDate(data.fecha_inicio)} - {formatDate(data.fecha_limite)}</span>
+          <span className="ml-2 text-clinic-muted">(170 a 209 dias)</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function IronDetails({ data }) {
+  const deliveries = data.entregas ?? [];
+  if (!deliveries.length || (data.cumple && deliveries.length <= 1)) return null;
+
+  return (
+    <details className="mt-3 rounded-xl border border-clinic-border bg-white/80 p-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-clinic-ink">
+        <span>{deliveries.length} entrega{deliveries.length === 1 ? '' : 's'} registrada{deliveries.length === 1 ? '' : 's'}</span>
+        <ChevronDown className="h-4 w-4 text-clinic-violet" />
+      </summary>
+      <div className="mt-3 space-y-2">
+        {deliveries.map((delivery) => (
+          <div key={`${delivery.label}-${delivery.fecha}-${delivery.codigo}`} className="rounded-lg bg-clinic-mint/30 p-3 text-xs text-clinic-muted">
+            <div className="grid gap-2 sm:grid-cols-[0.8fr_1fr_0.8fr_0.8fr]">
+              <p>
+                <span className="block font-bold text-clinic-ink">{delivery.label}</span>
+                {formatDate(delivery.fecha)}
+              </p>
+              <p>
+                <span className="block font-bold text-clinic-ink">Tipo</span>
+                {delivery.tipo || '-'}
+              </p>
+              <p>
+                <span className="block font-bold text-clinic-ink">Codigo</span>
+                {delivery.codigo || '-'}{delivery.lab ? ` - LAB ${delivery.lab}` : ''}
+              </p>
+              <p>
+                <span className="block font-bold text-clinic-ink">Edad</span>
+                {delivery.edad_atencion_dias ?? '-'} dias
+              </p>
+            </div>
+            {(delivery.codigo_anemia || delivery.intervalo_dias || delivery.establecimiento_atencion) && (
+              <p className="mt-2 rounded-md bg-white/70 px-2 py-1 font-semibold text-clinic-muted">
+                {delivery.codigo_anemia ? `Dx anemia: ${delivery.codigo_anemia}. ` : ''}
+                {delivery.intervalo_dias != null ? `Intervalo: ${delivery.intervalo_dias} dias. ` : ''}
+                {delivery.establecimiento_atencion ? `EESS: ${delivery.establecimiento_atencion}.` : ''}
+              </p>
             )}
           </div>
         ))}
@@ -203,7 +293,7 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
 
     try {
       const params = new URLSearchParams({ province: selectedProvince, indicator: selectedIndicator });
-      const response = await axios.get(`/api/search/dni/${dni.trim()}?${params.toString()}`);
+      const response = await api.get(`/api/search/dni/${dni.trim()}?${params.toString()}`);
       setResult(response.data);
     } catch (err) {
       setError(err.response?.data?.detail || 'Error en la busqueda');
@@ -296,20 +386,38 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               {Object.entries(result.vacunas).map(([vacuna, data]) => {
                 const label = componentLabels[vacuna] ?? vacuna;
+                const isHemoglobin = isMc02 && vacuna === 'hemoglobina';
+                const isIron = isMc02 && vacuna.startsWith('hierro_');
+                const registeredDoseCount = data.dosis_registradas ?? data.dosis?.filter((dose) => dose.registrada).length ?? 0;
+                const hasIronDelivery = isIron && Boolean(data.fecha);
+                const deliveryCount = data.entregas?.length || (hasIronDelivery ? 1 : 0);
+                const hasAnemiaAlert = Boolean(result.clinical_alerts?.length);
+                const fallbackIronType = vacuna === 'hierro_menor_6m'
+                  ? 'Preventiva 4 meses'
+                  : hasAnemiaAlert ? 'Tratamiento de anemia' : 'Preventiva 6 a 11 meses';
+                const ironType = data.entregas?.[0]?.tipo || data.tipo_atencion || (hasIronDelivery ? fallbackIronType : null);
+                const displayCode = data.codigo && data.codigo !== label ? data.codigo : '-';
                 return (
                   <div key={vacuna} className="rounded-xl border border-clinic-violet/10 bg-white/70 p-4 transition hover:-translate-y-0.5 hover:shadow-soft">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="font-bold text-clinic-ink">{label}</p>
-                        <p className="text-sm text-clinic-muted">Codigo: {data.codigo}</p>
-                        <p className="text-sm text-clinic-muted">Dosis registradas: {data.dosis?.length ?? 0}</p>
-                        <p className="text-sm text-clinic-muted">Ultima fecha: {formatDate(data.fecha)}</p>
+                        <p className="text-sm text-clinic-muted">Codigo: {displayCode}</p>
+                        {!isHemoglobin && !isIron && <p className="text-sm text-clinic-muted">Dosis registradas: {registeredDoseCount}</p>}
+                        {isIron && <p className="text-sm text-clinic-muted">Entregas registradas: {deliveryCount}</p>}
+                        <p className="text-sm text-clinic-muted">
+                          {isHemoglobin ? 'Fecha dosaje' : isIron ? 'Fecha entrega' : 'Ultima fecha'}: {formatDate(data.fecha)}
+                        </p>
+                        {isHemoglobin && <p className="text-sm text-clinic-muted">Edad al dosaje: {data.edad_atencion_dias != null ? `${data.edad_atencion_dias} dias` : '-'}</p>}
+                        {isIron && <p className="text-sm text-clinic-muted">Edad a la entrega: {data.edad_atencion_dias != null ? `${data.edad_atencion_dias} dias` : '-'}</p>}
+                        {isIron && <p className="text-sm text-clinic-muted">Tipo: {ironType || '-'}</p>}
+                        {isIron && <p className="text-sm text-clinic-muted">Resultado Excel: {data.resultado || '-'}</p>}
                         <p className="text-sm text-clinic-muted">EESS atencion: {data.establecimiento_atencion || '-'}</p>
                         <p className="text-sm text-clinic-muted">Profesional: {data.profesional || '-'}</p>
                       </div>
                       <StatusPill estado={data.estado} />
                     </div>
-                    <DoseDetails doses={data.dosis} />
+                    {isHemoglobin ? <HemoglobinDetails data={data} /> : isIron ? <IronDetails data={data} /> : <DoseDetails doses={data.dosis} />}
                     <DetailMessage item={data} />
                   </div>
                 );

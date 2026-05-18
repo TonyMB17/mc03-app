@@ -5,7 +5,11 @@ __pycache__/
 *.pyd
 .python-version
 backend/uploads/
+backend/processed_uploads/
+backend/backups/
 backend/data_state.json
+.env
+backend/.env
 
 # Virtual environments
 .venv/

@@ -1,6 +1,32 @@
 # config.py - Configuración de Estructuras de Datos y Reglas de Negocio
 # Red de Salud Abancay - Sistema NeoAbancay
 
+CODE = "mc03"
+NAME = "Paquete recien nacido"
+DEFAULT_PROVINCE = "ABANCAY"
+DEFAULT_TARGET_COVERAGE = 70.7
+ALL_PROVINCES_TOKEN = "__ALL__"
+
+EXCEL_SHEET = "Detalle_Ate"
+CUTOFF_CELL = "B8"
+HEADER_ROW = 10
+
+MONTHS_2026 = [
+    (1, "enero"),
+    (2, "febrero"),
+    (3, "marzo"),
+    (4, "abril"),
+    (5, "mayo"),
+    (6, "junio"),
+    (7, "julio"),
+    (8, "agosto"),
+    (9, "setiembre"),
+    (10, "octubre"),
+    (11, "noviembre"),
+]
+MONTH_LABELS = {month: name for month, name in MONTHS_2026}
+VERIFICATION_MONTHS = {6, 7, 8, 9, 10, 11}
+
 # 1. CODIGOS PRESTACIONALES (Según Ficha Técnica MC-03)
 CODIGOS_ESTANDAR = {
     "BCG": "90585",        # [cite: 95]
@@ -89,3 +115,33 @@ REGLAS_NEGOCIO = {
         "GESTACION_MIN": 37   # 
     }
 }
+
+REQUIRED_COLUMNS = [
+    "Mes_eva",
+    "Obs_Eval",
+    "Esta_pac",
+    "Desc_prov",
+    "afi_DNI",
+    "NumCNV",
+    "fec_Nac",
+    "fec1_BCG",
+    "resul1_BCG",
+    "Edad_ate1_BCG",
+    "fecHVB",
+    "resulHVB",
+    "Edad_ateHVB",
+    "Fecha_Atencion_1",
+    "Codigo_HIS_1",
+    "Edad_Atencion_1",
+    "Fecha_Atencion_2",
+    "Codigo_HIS_2",
+    "Edad_Atencion_2",
+    "Intervalo_2",
+    "Fecha_Atencion_3",
+    "Codigo_HIS_3",
+    "Edad_Atencion_3",
+    "Intervalo_3",
+    "Fecha_Atencion_TN",
+    "Codigo_HIS_TN",
+    "Edad_Atencion_TN",
+]

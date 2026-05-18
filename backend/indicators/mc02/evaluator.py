@@ -13,7 +13,8 @@ from typing import Any
 
 import pandas as pd
 
-from .vaccines import COMPONENTS, evaluate_package, is_compliant
+from .components import COMPONENTS
+from .engine.package import evaluate_package, is_compliant
 
 
 def evaluate_patient(row: pd.Series, reference_date: date | None = None) -> dict[str, Any]:

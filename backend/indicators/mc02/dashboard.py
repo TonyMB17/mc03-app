@@ -9,7 +9,7 @@ import pandas as pd
 
 from .config import DEFAULT_PROVINCE, DEFAULT_TARGET_COVERAGE
 from .denominator import is_in_denominator
-from .evaluator import evaluate_package, is_compliant
+from .evaluator import COMPONENTS, evaluate_package
 from .excel_loader import unique_text_values
 from .iron import anemia_alerts
 from .rules import (
@@ -27,6 +27,7 @@ from .utils import clean_value, parse_month_key
 
 
 ALL_PROVINCES_TOKEN = "__ALL__"
+COMPONENT_LABELS = {component["key"]: component["label"] for component in COMPONENTS}
 
 
 def normalize_target(value: float | None) -> float:
@@ -75,11 +76,32 @@ def first_failed_detail(package: dict[str, Any]) -> tuple[str | None, dict[str, 
     return None, None
 
 
+def failed_details(package: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [(key, detail) for key, detail in package["details"].items() if not detail["cumple"]]
+
+
+def component_label(component_key: str) -> str:
+    return COMPONENT_LABELS.get(component_key, component_key)
+
+
+def observed_components_text(package: dict[str, Any]) -> str:
+    return "; ".join(component_label(key) for key, _ in failed_details(package))
+
+
+def labeled_failure_reasons(package: dict[str, Any]) -> str:
+    reasons = []
+    for key, detail in failed_details(package):
+        message = clean_value(detail.get("mensaje"))
+        if message:
+            reasons.append(f"{component_label(key)}: {message}")
+    return "\n".join(reasons)
+
+
 def omiso_from_row(row: pd.Series, package: dict[str, Any]) -> dict[str, Any]:
     parsed_month = parse_month_key(row.get(MONTH_COLUMN))
     year, month_name = (parsed_month[0], parsed_month[2]) if parsed_month else (None, None)
     component_key, failed_detail = first_failed_detail(package)
-    reasons = package["reasons"]
+    components_text = observed_components_text(package)
     return {
         "Mes_eva": clean_value(row.get(MONTH_COLUMN)) or None,
         "month": month_name,
@@ -95,12 +117,15 @@ def omiso_from_row(row: pd.Series, package: dict[str, Any]) -> dict[str, Any]:
         "pre_CodigoRENAES": clean_value(row.get("Renaes")) or None,
         "Des_EESS": clean_value(row.get("EESS")) or None,
         "component": component_key,
+        "components_observed": components_text or (component_label(component_key) if component_key else None),
         "attention_date": failed_detail.get("fecha") if failed_detail else None,
         "attention_age_days": failed_detail.get("edad_atencion_dias") if failed_detail else None,
         "attention_facility": failed_detail.get("establecimiento_atencion") if failed_detail else None,
         "attention_professional": failed_detail.get("profesional") if failed_detail else None,
         "clinical_alerts": anemia_alerts(row),
-        "reason": "; ".join(reasons) or clean_value(row.get("Obs_General")) or "No cumple paquete integrado.",
+        "reason": labeled_failure_reasons(package)
+        or clean_value(row.get("Obs_General"))
+        or "No cumple paquete integrado.",
     }
 
 
@@ -126,7 +151,15 @@ def build_report_summary(
     for year, month, month_name in month_keys:
         key = f"{year}_{month}"
         month_df = denominator_df[denominator_df[MONTH_COLUMN].astype(str).str.strip() == key]
-        numerator = int(month_df.apply(lambda row: is_compliant(row, cutoff_date), axis=1).sum())
+        numerator = 0
+        month_omisos = []
+        for _, row in month_df.iterrows():
+            package = evaluate_package(row, cutoff_date)
+            if package["complete"]:
+                numerator += 1
+            else:
+                month_omisos.append(omiso_from_row(row, package))
+
         denominator = len(month_df)
         coverage = round((numerator / denominator) * 100, 2) if denominator else 0.0
         monthly.append(
@@ -141,11 +174,7 @@ def build_report_summary(
                 "numerator": numerator,
             }
         )
-
-        for _, row in month_df.iterrows():
-            if not is_compliant(row, cutoff_date):
-                package = evaluate_package(row, cutoff_date)
-                omisos.append(omiso_from_row(row, package))
+        omisos.extend(month_omisos)
 
     months_met = sum(1 for item in monthly if item["compliant"])
     period_start = date(month_keys[0][0], month_keys[0][1], 1) if month_keys else date(2026, 1, 1)

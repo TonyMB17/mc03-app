@@ -5,7 +5,8 @@ and evaluator code. The concrete business values still live in ``config.py`` so
 the operative Excel contract remains in one place.
 """
 
-from .config import CODIGOS_ESTANDAR, REGLAS_NEGOCIO
+from .codes import CODIGOS_ESTANDAR
+from .config import REGLAS_NEGOCIO
 
 
 ESTADOS_COMPONENTE = {

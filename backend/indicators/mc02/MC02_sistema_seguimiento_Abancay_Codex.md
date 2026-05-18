@@ -233,7 +233,7 @@ En fase Excel, el numerador se recalcula con marcas precalculadas. No usar direc
 | Código interno | Componente | Marca Excel | Aplica desde edad al corte | Observación |
 |---|---|---|---:|---|
 | `neumococo` | Vacuna antineumocócica | `obs_neu1` | 120 días | 2 dosis acumuladas desde 190 días. |
-| `rotavirus` | Vacuna rotavirus | `obs_rot1` | 211 días | Corregido: no empieza a los 120 días. |
+| `rotavirus` | Vacuna rotavirus | `obs_rot1` | 190 días | Primera dosis exigible desde 190 días; edad máxima de primera dosis 210 días. |
 | `antipolio` | Vacuna antipolio | `obs_ant1` | 120 días | 3 dosis acumuladas desde 260 días. |
 | `pentavalente` | Vacuna pentavalente | `obs_pen1` | 120 días | 3 dosis acumuladas desde 260 días. |
 | `hierro_4m` | Entrega preventiva de hierro 4 meses | `obs_suple41` | 131 días | Entrega válida entre 110 y 130 días. |
@@ -294,12 +294,12 @@ Motivos:
 | Código HIS | `90681` |
 | Edad máxima de aplicación | `240` días. |
 
-> **Corrección importante:** rotavirus no usa la misma ventana de neumococo/pentavalente. La ficha establece `0-210` como no exigible, `211-240` para una dosis y `241-364` para dos dosis acumuladas.
+> **Corrección importante:** rotavirus no usa la misma ventana de neumococo/pentavalente. En el Excel operativo MC-02 se observa que desde `190` días debe contar con primera dosis o queda como `No_cumple`; la primera dosis sigue teniendo edad máxima válida de `210` días.
 
 | Edad al corte | Exigencia | Condición de dosis |
 |---|---|---|
-| `0-210` | No exige dosis | `programado` / cumple para paquete parcial. |
-| `211-240` | 1 dosis | Primera dosis aplicada con edad de atención `55-210` días. |
+| `0-189` | No exige dosis | `programado` / cumple para paquete parcial. |
+| `190-240` | 1 dosis | Primera dosis aplicada con edad de atención `55-210` días. |
 | `241-364` | 2 dosis | Segunda dosis con intervalo mínimo de `28` días después de la primera y edad de atención `<=240` días. |
 
 Motivos:
@@ -506,22 +506,30 @@ En fase Excel se usa `obs_suple61`, pero el sistema debe conservar datos de anem
 
 | Campo | Valor |
 |---|---|
-| Código interno | `hemoglobina` |
-| Códigos HIS | `85018`, `85018.01`, `85031` |
-| Marca Excel | `Obs_dh1` |
+| Codigo interno | `hemoglobina` |
+| Codigos HIS | `85018`, `85018.01`, `85031` |
+| Marca Excel | `Obs_dh1` como resultado operativo auxiliar; no basta por si sola si no hay trazabilidad. |
+| Columnas de trazabilidad | `fecha_1DH`, `Lab_1DH`, `edad_1DH`, `CIE_DH_1DH`, `Lote_Pag_Reg_1DH`, `EESS_Ate_1DH`. |
 
-| Edad al corte | Exigencia | Ventana de atención |
+| Edad al corte | Exigencia | Ventana de atencion |
 |---|---|---|
-| `0-209` | No exige dosaje vencido | Programado. Si existe dosaje válido entre 170-209, mostrar `cumple`. |
-| `210-364` | 1 dosaje | Dosaje registrado cuando el niño/a tenía `170-209` días. |
+| `0-209` | No exige dosaje vencido | Programado. Si existe dosaje valido entre 170-209, mostrar `cumple`. |
+| `210-364` | 1 dosaje | Dosaje registrado cuando el nino/a tenia `170-209` dias. |
 
 Motivos:
 
-| Código | Descripción |
+| Codigo | Descripcion |
 |---|---|
-| `HEMO-01` | Niño/a de 210 días o más sin dosaje. |
-| `HEMO-02` | Dosaje registrado fuera de edad `170-209` días. |
-| `HEMO-03` | Código de dosaje no válido. |
+| `HEMO-01` | Nino/a de 210 dias o mas sin dosaje. |
+| `HEMO-02` | Dosaje registrado fuera de edad `170-209` dias. |
+| `HEMO-03` | Codigo de dosaje no valido. |
+
+Regla operativa local:
+
+- Para confirmar cumplimiento del dosaje se deben usar las columnas de trazabilidad del dosaje, no solo `Obs_dh1`.
+- Si `Obs_dh1 = 1` pero `fecha_1DH` y `CIE_DH_1DH` estan vacios, no existe atencion trazable.
+- Si el dosaje aun no es exigible por edad, el componente queda `programado` y no debe sobrecargar la vista con una atencion inexistente.
+- Si el dosaje ya es exigible, debe existir atencion trazable y valida en edad `170-209` para cumplir.
 
 ---
 
@@ -694,7 +702,7 @@ MC-02 no debe interpretarse como atenciones realizadas solo en el mes calendario
 
 ## 13. Arquitectura sugerida de backend
 
-Estructura recomendada:
+Estructura vigente recomendada para MC-02:
 
 ```text
 backend/
@@ -702,7 +710,9 @@ backend/
     mc02/
       __init__.py
       config.py
+      codes.py
       constants.py
+      excel_schema.py
       schema.py
       rules.py
       utils.py
@@ -715,28 +725,55 @@ backend/
       messages.py
       dashboard.py
       processor.py
+      components/
+        __init__.py
+        vaccines.py
+        iron.py
+        hemoglobin.py
+      engine/
+        __init__.py
+        component.py
+        package.py
       tests/
         test_mc02_rules.py
 ```
 
-### 13.1 Responsabilidades por módulo
+### 13.1 Responsabilidades por modulo
 
-| Módulo | Responsabilidad |
+| Modulo | Responsabilidad |
 |---|---|
-| `config.py` | Contrato del Excel operativo, columnas, reglas de negocio y valores por defecto. |
-| `constants.py` | Códigos HIS, rangos de edad, ventanas, estados, motivos. |
-| `schema.py` | Modelos o notas de contrato especificas del indicador cuando no correspondan al esquema global. |
-| `rules.py` | Alias operativos de reglas usadas por procesadores y validadores. |
-| `utils.py` | Fechas, normalización de texto, normalización de flags, conversión numérica. |
+| `config.py` | Identidad del indicador, valores por defecto, columnas generales y ensamble de reglas activas. Debe mantenerse liviano. |
+| `codes.py` | Codigos HIS, CPMS y diagnosticos estandar usados por MC-02. |
+| `constants.py` | Alias de constantes compartidas y estados internos del indicador. |
+| `excel_schema.py` | Contrato del Excel operativo: grupos de columnas y resumen operativo. |
+| `schema.py` | Fachada de compatibilidad para el contrato Excel; si se agregan modelos Pydantic especificos, deben separarse aqui o en `schemas.py`. |
+| `rules.py` | Alias operativos de reglas usadas por procesadores y validadores: denominador, provincia, seguro, mes y componentes activos. |
+| `utils.py` | Fechas, normalizacion de texto, normalizacion de flags y conversion numerica. |
 | `excel_loader.py` | Lectura de Excel, hoja `Detalle_Ate`, fecha `D9`, encabezados fila 10. |
-| `denominator.py` | Inclusión/exclusión del denominador. |
-| `vaccines.py` | Neumococo, rotavirus, antipolio y pentavalente. |
-| `iron.py` | Hierro 4m, hierro 6m, prevención, tratamiento, micronutrientes. |
-| `hemoglobin.py` | Dosaje de hemoglobina. |
-| `evaluator.py` | Orquestación por paciente. |
+| `denominator.py` | Inclusion/exclusion del denominador. |
+| `components/vaccines.py` | Definiciones de neumococo, rotavirus, antipolio, pentavalente, dosis y ventanas por edad. |
+| `components/iron.py` | Definiciones de hierro menor de 6 meses, hierro mayor de 6 meses, entregas preventivas, tratamiento de anemia e intervalos. |
+| `components/hemoglobin.py` | Definicion de dosaje de hemoglobina y ventana valida de 170 a 209 dias. |
+| `components/__init__.py` | Catalogo consolidado `COMPONENTS` y `COMPONENT_WINDOWS`. |
+| `engine/component.py` | Motor comun de evaluacion por componente: ventanas, dosis, entregas, detalle y cumplimiento. |
+| `engine/package.py` | Evaluacion del paquete completo por paciente. |
+| `evaluator.py` | Fachada estable para orquestacion por paciente. |
 | `dashboard.py` | Agregaciones, avance, brechas y motivos. |
-| `messages.py` | Diccionario de mensajes de incumplimiento y alertas. |
+| `messages.py` | Construccion de mensajes visibles de cumplimiento, programacion, pendiente y fuera de plazo. |
 | `processor.py` | Fachada publica del indicador para la plataforma multiindicador. |
+| `vaccines.py` | Fachada de compatibilidad temporal para imports antiguos; no debe recibir nuevas reglas. |
+| `hemoglobin.py` | Fachada de compatibilidad temporal hacia `components/hemoglobin.py`. |
+| `iron.py` | Alertas clinicas de anemia y reglas auxiliares de hierro; las definiciones del componente viven en `components/iron.py`. |
+
+### 13.2 Regla de organizacion para nuevos cambios
+
+- Nuevos codigos deben agregarse en `codes.py`.
+- Nuevas columnas del Excel deben agregarse en `excel_schema.py`.
+- Nuevas ventanas o definiciones de componente deben agregarse en `components/`.
+- Cambios en el calculo generico de dosis, entregas, ventanas o detalle deben agregarse en `engine/`.
+- Cambios de texto para la interfaz o explicaciones deben agregarse en `messages.py`.
+- `config.py` no debe crecer con reglas especificas de vacunas, suplementacion o dosaje; solo debe ensamblarlas.
+- Las fachadas `vaccines.py`, `hemoglobin.py` y `schema.py` existen para compatibilidad durante la migracion y no deben usarse como destino principal de nueva logica.
 
 ---
 
@@ -762,8 +799,8 @@ VENTANAS_VACUNAS = {
         {"edad_corte": [190, 364], "dosis_requeridas": 2, "intervalo": [28, 70]},
     ],
     "rotavirus": [
-        {"edad_corte": [0, 210], "dosis_requeridas": 0},
-        {"edad_corte": [211, 240], "dosis_requeridas": 1, "edad_dosis_1": [55, 210]},
+        {"edad_corte": [0, 189], "dosis_requeridas": 0},
+        {"edad_corte": [190, 240], "dosis_requeridas": 1, "edad_dosis_1": [55, 210]},
         {"edad_corte": [241, 364], "dosis_requeridas": 2, "intervalo_min": 28, "edad_max_dosis": 240},
     ],
     "antipolio": [
@@ -839,7 +876,7 @@ Crear pruebas unitarias para estos casos.
 
 | Tema | Problema detectado | Corrección en este documento |
 |---|---|---|
-| Rotavirus | Se documentó con ventana similar a neumococo/pentavalente. | Se corrigió a `0-210`, `211-240`, `241-364`, con máximo de aplicación 240 días. |
+| Rotavirus | Se documentó inicialmente como no exigible hasta 210 días. | Se ajustó a `0-189`, `190-240`, `241-364`, manteniendo edad máxima de primera dosis 210 días y segunda dosis hasta 240 días. |
 | Antipolio | En el markdown actual aparecía con ventana de rotavirus. | Se corrigió a `0-119`, `120-189`, `190-259`, `260-364`. |
 | Hierro 4 meses | Se describió como aplicable hasta 209 días. | Se corrigió: no exigible `0-130`, exige una entrega desde `131-364`, con atención entre `110-130`. |
 | Hierro 6 meses | Faltaban rangos etarios acumulados completos. | Se separó tratamiento, preventivo solo hierro, combinado y solo micronutrientes. |
@@ -901,7 +938,7 @@ Después de modificar, ejecuta o propone pruebas.
 - [ ] Recalcula numerador desde componentes, no desde `Estado`.
 - [ ] Omite DNI del numerador local.
 - [ ] Omite CRED del numerador actual.
-- [ ] Corrige rotavirus con ventana `0-210`, `211-240`, `241-364`.
+- [ ] Corrige rotavirus con ventana `0-189`, `190-240`, `241-364`.
 - [ ] Corrige antipolio con ventana `0-119`, `120-189`, `190-259`, `260-364`.
 - [ ] Corrige hierro 4m desde `131-364`, atención `110-130`.
 - [ ] Evalúa hierro 6m por rutas.

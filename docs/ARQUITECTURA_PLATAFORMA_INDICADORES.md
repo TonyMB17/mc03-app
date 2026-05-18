@@ -48,13 +48,23 @@ backend/
   indicators/
     mc03/
       config.py
+      denominator.py
+      vaccines.py
+      cred.py
+      screening.py
+      messages.py
+      utils.py
       processor.py
       rules.py
       schema.py
-      README_MC03.md
+      MC03_sistema_seguimiento_Abancay_Codex.md
 
     nuevo_indicador/
       config.py
+      denominator.py
+      components.py
+      messages.py
+      utils.py
       processor.py
       rules.py
       schema.py
@@ -268,12 +278,14 @@ backend/processed/
 
 ## Documentacion por indicador
 
-Cada indicador debe tener su propio `.md`. Estructura sugerida:
+Cada indicador debe tener su propio `.md` dentro de su modulo backend para mantener juntas la logica y su ficha tecnica operativa. Estructura sugerida:
 
 ```text
-docs/indicadores/
-  MC03_PAQUETE_RECIEN_NACIDO.md
-  MC04_OTRO_INDICADOR.md
+backend/indicators/
+  mc03/
+    MC03_sistema_seguimiento_Abancay_Codex.md
+  mc04/
+    MC04_sistema_seguimiento_Abancay_Codex.md
 ```
 
 Plantilla minima para cada indicador:
@@ -329,7 +341,7 @@ Pasos sugeridos:
 6. Crear un registro de indicadores disponibles.
 7. Adaptar endpoints para recibir `indicator_code`.
 8. Adaptar frontend para seleccionar indicador.
-9. Crear documento especifico `docs/indicadores/MC03_PAQUETE_RECIEN_NACIDO.md`.
+9. Mantener el documento especifico del indicador dentro de `backend/indicators/mc03/`.
 
 ## Endpoints sugeridos a futuro
 
@@ -409,50 +421,21 @@ Excel:
 
 - Puede exportarse como fecha real o texto formateado, pero debe ser legible.
 
-## Fases de desarrollo
+## Estado de desarrollo
 
-### Fase 1: Modularizar MC-03
+La base multiindicador ya cuenta con:
 
-- Crear estructura `backend/indicators/mc03/`.
-- Mover reglas actuales sin cambiar comportamiento.
-- Crear contrato comun para procesadores.
-- Mantener endpoints actuales funcionando.
-- Crear documento especifico de MC-03.
+- MC-02 modularizado y persistido en PostgreSQL.
+- MC-03 modularizado y persistido en PostgreSQL.
+- Registro de indicadores disponible en backend y frontend.
+- Carga de archivos asociada al indicador seleccionado.
+- Activacion versionada con historial.
+- Dashboard, busqueda por DNI/CNV, incumplidos y descargas leyendo desde la carga activa.
+- Procesamiento en segundo plano para activaciones pesadas.
+- Roles `clinical`, `supervisor` y `admin`.
+- Auditoria de eventos y respaldo manual de PostgreSQL.
 
-### Fase 2: Registro de indicadores
-
-- Crear listado de indicadores disponibles.
-- Agregar selector de indicador en frontend.
-- Mostrar metadatos: codigo, nombre, descripcion, meta y estado de datos.
-
-### Fase 3: Carga de archivos por indicador
-
-- Asociar archivos cargados al indicador seleccionado.
-- Validar estructura segun reglas del indicador.
-- Activar fuente de datos por indicador.
-- Mantener historial de cargas.
-
-### Fase 4: Dashboard generico
-
-- Reutilizar cards, tabla mensual e incumplidos.
-- Adaptar columnas dinamicas por indicador.
-- Mantener filtros comunes.
-- Permitir textos y mensajes especificos.
-
-### Fase 5: Segundo indicador piloto
-
-- Elegir un indicador distinto a MC-03.
-- Crear su documento especifico.
-- Implementar sus reglas.
-- Verificar que la arquitectura soporte diferencias reales.
-
-### Fase 6: Gestion avanzada
-
-- Usuarios y roles.
-- Historial de archivos.
-- Comparacion entre periodos.
-- Alertas por establecimiento.
-- Tablero consolidado de varios indicadores.
+Las fases historicas de migracion a PostgreSQL quedan documentadas en `docs/README_PostgreSQL_Migration.md`.
 
 ## Criterios para agregar un nuevo indicador
 
@@ -472,7 +455,7 @@ Antes de implementar un indicador nuevo se debe tener:
 
 ## Recomendacion inmediata
 
-El siguiente paso recomendado es refactorizar MC-03 como modulo independiente. Ese modulo sera el molde tecnico para los demas indicadores.
+Antes de implementar otro indicador, usar MC-02 y MC-03 como molde tecnico: crear el documento especifico del indicador, mapear columnas Excel, definir componentes, agregar pruebas nominales con DNIs/CNV reales y luego conectar el modulo al registro comun.
 
-La prioridad no debe ser agregar muchos indicadores rapidamente, sino construir bien el patron con MC-03 para que los siguientes indicadores entren con menos riesgo y menos duplicacion.
+La prioridad no debe ser agregar muchos indicadores rapidamente, sino mantener un contrato estable para que cada indicador nuevo entre con menos riesgo y menos duplicacion.
 

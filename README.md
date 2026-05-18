@@ -39,6 +39,7 @@ npm run dev
 
 - El backend ya incluye un modulo `backend/config.py` con reglas MC-03.
 - El frontend esta configurado para hacer proxy a `/api` hacia el backend local.
+- La ruta de migracion para almacenar datos procesados en PostgreSQL esta documentada en `docs/README_PostgreSQL_Migration.md`.
 
 ## Criterio de diseno frontend con daisyUI
 
