@@ -33,6 +33,7 @@ class LoginResponse(BaseModel):
 class MonthlyCompliance(BaseModel):
     month: str
     year: int
+    month_key: str | None = None
     compliant: bool
     semaphore: str = "red"
     coverage: float
@@ -78,6 +79,7 @@ class ReportSummary(BaseModel):
     monthly: List[MonthlyCompliance]
     omisos: List[OmisoItem]
     subindicators: dict[str, Any] = {}
+    commitment_summary: dict[str, Any] = {}
 
 
 class OmisosResponse(BaseModel):
@@ -127,7 +129,12 @@ class DataFileSummary(BaseModel):
     expected_files: int | None = None
     subindicators_found: List[str] = []
     missing_subindicators: List[str] = []
+    duplicate_subindicators: List[str] = []
+    unknown_files: List[str] = []
     subindicators: dict[str, Any] = {}
+    cutoff_dates: dict[str, Any] = {}
+    cutoff_date_mismatch: bool = False
+    package_files: List[dict[str, Any]] = []
     total_loaded_columns: int | None = None
 
 

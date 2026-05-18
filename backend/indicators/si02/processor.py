@@ -1,9 +1,4 @@
-"""Initial SI-02 processing helpers.
-
-This module works with the package data produced by ``excel_loader``. It is not
-yet wired into the public FastAPI indicator registry because SI-02 needs a
-four-file upload flow before activation.
-"""
+"""SI-02 processing helpers."""
 
 from __future__ import annotations
 
@@ -13,6 +8,7 @@ from typing import Any
 import pandas as pd
 
 from .config import DEFAULT_PROVINCE, DEFAULT_TARGET_COVERAGE, EXPECTED_PACKAGE_CODES, SUBINDICATORS
+from .commitment import build_commitment_summary, current_commitment_met
 from .evaluator import evaluate_dataframe, evaluate_row
 from .utils import clean_value, parse_month_key
 
@@ -102,21 +98,24 @@ def build_package_summary(
     subindicator_months_met = {code: summary["months_met"] for code, summary in sub_summaries.items()}
     monthly = aggregate_monthly(sub_summaries, target_coverage)
     omisos = [item for summary in sub_summaries.values() for item in summary["omisos"]]
+    resolved_cutoff_date = latest_cutoff_date(cutoff_date)
+    commitment_summary = build_commitment_summary(sub_summaries, resolved_cutoff_date)
     return {
         "indicator_code": "si02",
         "province": province,
         "period_start": period_boundary(monthly, first=True),
         "period_end": period_boundary(monthly, first=False),
-        "cut_off_date": latest_cutoff_date(cutoff_date),
+        "cut_off_date": resolved_cutoff_date,
         "target_coverage": DEFAULT_TARGET_COVERAGE if target_coverage is None else float(target_coverage),
         "months_evaluated": len(monthly),
         "months_met": sum(1 for item in monthly if item["compliant"]),
-        "committed": False,
+        "committed": current_commitment_met(sub_summaries, resolved_cutoff_date),
         "monthly": monthly,
         "omisos": omisos,
         "subindicators": sub_summaries,
         "subindicator_months_met": subindicator_months_met,
         "package_complete": set(sub_summaries.keys()) == set(EXPECTED_PACKAGE_CODES),
+        "commitment_summary": commitment_summary,
     }
 
 
@@ -254,6 +253,7 @@ def aggregate_monthly(sub_summaries: dict[str, dict[str, Any]], target_coverage:
             {
                 "month": item["month"],
                 "year": item["year"],
+                "month_key": f'{item["year"]}_{month_number(item["month"])}',
                 "in_verification_period": True,
                 "compliant": compliant,
                 "semaphore": "green" if compliant else "red",

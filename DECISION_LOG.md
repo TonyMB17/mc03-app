@@ -667,3 +667,14 @@ npm run dev
 - Los endpoints de omisos/incumplidos y descargas CSV/XLSX aceptan `subindicator` para que la descarga respete la vista seleccionada.
 - Validacion HTTP: global ABANCAY devuelve 2,589 incumplidos; `subindicator=si02_04` devuelve solo SI-02.04 con 1,312 incumplidos; Excel filtrado responde correctamente.
 - Validacion tecnica: `npm run build` OK; `python -m py_compile backend/main.py` OK; `python -m unittest backend.indicators.si02.tests.test_si02_excel_contract backend.indicators.si02.tests.test_si02_rules backend.indicators.si02.tests.test_si02_storage backend.indicators.mc02.tests.test_mc02_rules` OK con 40 pruebas y 1 omitida.
+
+### Fase 6 SI-02 - Validacion operativa y compromiso
+- Se agrego `backend/indicators/si02/commitment.py` para calcular la lectura oficial del compromiso por verificacion:
+  - mayo 2026: `SI-02.01` requiere 4 de 5 meses y `SI-02.02`/`SI-02.03`/`SI-02.04` requieren 1 mes;
+  - noviembre 2026: los cuatro subindicadores requieren 5 de 6 meses.
+- `build_package_summary` y `build_active_report_summary` exponen `commitment_summary`; `committed` ahora representa el cumplimiento de la verificacion vigente segun fecha de corte.
+- La validacion del paquete SI-02 ahora detecta cantidad exacta de archivos, duplicados, archivos no identificados e inconsistencia de fecha de corte entre los cuatro Excel.
+- `DataUploadView.jsx` muestra una grilla operativa por subindicador con archivo, corte, filas, columnas y columnas faltantes; el historial agrega desglose de filas por subindicador.
+- `Dashboard.jsx` muestra un panel de compromiso SI-02 con regla aplicada y avance por subindicador.
+- Se corrigio la descripcion obsoleta de `backend/indicators/si02/__init__.py`.
+- Validacion tecnica: `python -m py_compile` sobre SI-02, schemas y `backend/main.py` OK; `npm run build` OK; `python -m unittest backend.indicators.si02.tests.test_si02_commitment backend.indicators.si02.tests.test_si02_excel_contract backend.indicators.si02.tests.test_si02_rules backend.indicators.si02.tests.test_si02_storage backend.indicators.mc02.tests.test_mc02_rules` OK con 34 pruebas y 3 omitidas por no encontrar Excel reales en `E:/Downloads` o pruebas protegidas de BD.

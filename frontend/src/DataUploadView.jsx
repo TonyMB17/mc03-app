@@ -7,6 +7,7 @@ import {
   DatabaseZap,
   FileCheck2,
   FileSpreadsheet,
+  Layers3,
   Loader2,
   RefreshCcw,
   UploadCloud,
@@ -49,6 +50,51 @@ function formatComponentItems(counts) {
       .join(' / ');
     return detail ? `${component}: ${detail}` : component;
   });
+}
+
+function formatSubindicatorCode(value) {
+  const code = String(value || '').toUpperCase();
+  return code.replace(/^SI02_(\d+)$/, 'SI-02.$1');
+}
+
+function PackageFileGrid({ files }) {
+  if (!files?.length) return null;
+
+  const styles = {
+    ok: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    missing: 'border-red-200 bg-red-50 text-red-700',
+    duplicate: 'border-amber-200 bg-amber-50 text-amber-800',
+  };
+
+  return (
+    <div className="rounded-lg border border-clinic-border bg-white p-3">
+      <p className="inline-flex items-center gap-2 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-clinic-muted">
+        <Layers3 className="h-4 w-4 text-clinic-violet" />
+        Archivos del paquete
+      </p>
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
+        {files.map((item) => (
+          <div key={item.subindicator_code} className={`rounded-lg border p-3 ${styles[item.status] ?? styles.ok}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-clinic-ink">{formatSubindicatorCode(item.subindicator_code)}</p>
+                <p className="mt-1 truncate text-xs font-semibold">{item.filename || 'Archivo no encontrado'}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-white/70 px-2.5 py-1 text-xs font-bold ring-1 ring-current">
+                {item.status === 'ok' ? 'OK' : item.status === 'duplicate' ? 'Duplicado' : 'Falta'}
+              </span>
+            </div>
+            <p className="mt-2 text-xs font-semibold">
+              Corte {formatDate(item.cutoff_date)} - {item.rows ?? 0} registros - {item.columns ?? 0} columnas
+            </p>
+            {item.missing_columns?.length > 0 && (
+              <p className="mt-1 text-xs font-bold">Faltan {item.missing_columns.length} columnas obligatorias</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function InfoCell({ label, value, icon: Icon }) {
@@ -255,6 +301,10 @@ function DataUploadView({ selectedIndicator }) {
   );
   const omittedColumnsPreview = useMemo(
     () => previewSummary?.omitted_columns ?? [],
+    [previewSummary],
+  );
+  const packageFilesPreview = useMemo(
+    () => previewSummary?.package_files ?? [],
     [previewSummary],
   );
 
@@ -473,6 +523,8 @@ function DataUploadView({ selectedIndicator }) {
                 <InfoCell label="Fila de encabezados" value={previewSummary?.header_row ?? '-'} icon={FileCheck2} />
               </div>
 
+              {isPackageUpload && <PackageFileGrid files={packageFilesPreview} />}
+
               <div className="grid gap-3 xl:grid-cols-3">
                 <ChipGroup title="Meses encontrados" items={previewSummary?.months ?? []} />
                 <ChipGroup title="Provincias encontradas" items={previewSummary?.provinces ?? []} />
@@ -545,7 +597,16 @@ function DataUploadView({ selectedIndicator }) {
                     <td className="px-4 py-3">{item.uploaded_by || '-'}</td>
                     <td className="px-4 py-3">{item.activated_by || '-'}</td>
                     <td className="px-4 py-3">{formatDate(item.cutoff_date)}</td>
-                    <td className="px-4 py-3">{item.rows_total ?? '-'}</td>
+                    <td className="px-4 py-3">
+                      <span className="font-semibold text-clinic-ink">{item.rows_total ?? '-'}</span>
+                      {item.validation_summary?.subindicators && (
+                        <span className="mt-1 block text-xs leading-5 text-clinic-muted">
+                          {Object.entries(item.validation_summary.subindicators)
+                            .map(([code, summary]) => `${formatSubindicatorCode(code)} ${summary.total_rows ?? 0}`)
+                            .join(' / ')}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs">{shortHash(item.file_hash)}</td>
                   </tr>
                 ))}

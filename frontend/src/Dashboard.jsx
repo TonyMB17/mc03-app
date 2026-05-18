@@ -188,6 +188,70 @@ function SubindicatorSelector({ options, value, onChange }) {
   );
 }
 
+function CommitmentPanel({ summary }) {
+  const commitment = summary?.commitment_summary;
+  if (!commitment?.verifications?.length) return null;
+
+  return (
+    <section className="panel p-4 lg:p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-clinic-muted">
+            <Target className="h-4 w-4 text-clinic-violet" />
+            Compromiso SI-02
+          </p>
+          <h3 className="mt-2 text-xl font-bold text-clinic-ink">{commitment.current_label}</h3>
+          <p className="mt-1 text-sm leading-6 text-clinic-muted">
+            Estado segun meses cumplidos por subindicador y la regla oficial de verificacion.
+          </p>
+        </div>
+        <SemaphoreBadge value={commitment.global_committed ? 'green' : 'red'} />
+      </div>
+
+      <div className="mt-4 grid gap-3 xl:grid-cols-2">
+        {commitment.verifications.map((verification) => (
+          <article
+            key={verification.code}
+            className={`rounded-xl border p-4 ${
+              verification.is_current ? 'border-clinic-teal bg-clinic-mint/45' : 'border-clinic-border bg-white/70'
+            }`}
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-bold text-clinic-ink">{verification.label}</p>
+                <p className="mt-1 text-xs font-semibold text-clinic-muted">{verification.period}</p>
+                <p className="mt-1 text-xs font-semibold text-clinic-muted">{verification.required_rule}</p>
+              </div>
+              <SemaphoreBadge value={verification.committed ? 'green' : 'red'} />
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {verification.subindicators.map((item) => (
+                <div key={item.subindicator_code} className="rounded-lg border border-clinic-border bg-white/80 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-clinic-teal">
+                        {formatSubindicatorCode(item.subindicator_code)}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-clinic-muted">
+                        {item.months_met}/{item.required_months} meses requeridos
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-2 py-1 text-xs font-bold ring-1 ${
+                      item.committed ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-red-50 text-red-700 ring-red-200'
+                    }`}>
+                      {item.committed ? 'Cumple' : 'No cumple'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
   const [status, setStatus] = useState('cargando...');
   const [summary, setSummary] = useState(null);
@@ -373,6 +437,8 @@ function Dashboard({ selectedProvince, targetCoverage, selectedIndicator }) {
         <MetricCard title="Meses cumplidos" value={viewSummary ? `${monthsMetThroughCurrent}/${monthsThroughCurrent.length}` : '-'} icon={TrendingUp} tone="pink" />
         <MetricCard title={isMc02 ? 'Registros observados' : 'Incumplidos total'} value={viewSummary ? incumplidosCount : '-'} icon={UsersRound} tone="rose" />
       </section>
+
+      {isSi02 && <CommitmentPanel summary={summary} />}
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">

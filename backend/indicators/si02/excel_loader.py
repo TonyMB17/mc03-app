@@ -179,6 +179,14 @@ def prepare_upload_package(filepaths: Iterable[Path], load_data: bool = True) ->
     subindicators: dict[str, dict[str, Any]] = {}
     data: dict[str, pd.DataFrame] = {}
     cutoff_dates: dict[str, Any] = {}
+    duplicate_subindicators: list[str] = []
+    unknown_files: list[str] = []
+
+    if len(files) != len(EXPECTED_PACKAGE_CODES):
+        errors.append(
+            f"SI-02 requiere exactamente {len(EXPECTED_PACKAGE_CODES)} archivos Excel, uno por subindicador. "
+            f"Se recibieron {len(files)}."
+        )
 
     for filepath in files:
         prepared = prepare_subindicator_file(filepath, load_data=load_data)
@@ -186,6 +194,7 @@ def prepare_upload_package(filepaths: Iterable[Path], load_data: bool = True) ->
         code = prepared.get("subindicator_code") or validation.get("summary", {}).get("subindicator_code")
 
         if code in subindicators:
+            duplicate_subindicators.append(code)
             errors.append(f"Se encontro mas de un archivo para {code}.")
         if not validation["valid"]:
             errors.extend(f"{filepath.name}: {error}" for error in validation["errors"])
@@ -196,10 +205,21 @@ def prepare_upload_package(filepaths: Iterable[Path], load_data: bool = True) ->
             if prepared.get("data") is not None:
                 data[code] = prepared["data"]
             cutoff_dates[code] = prepared.get("cutoff_date")
+        else:
+            unknown_files.append(filepath.name)
 
     missing = [code for code in EXPECTED_PACKAGE_CODES if code not in subindicators]
     if missing:
         errors.append("Faltan archivos obligatorios del paquete SI-02: " + ", ".join(missing))
+
+    non_empty_cutoffs = {code: value for code, value in cutoff_dates.items() if value is not None}
+    distinct_cutoffs = sorted({value for value in non_empty_cutoffs.values()})
+    cutoff_date_mismatch = len(distinct_cutoffs) > 1
+    if cutoff_date_mismatch:
+        errors.append(
+            "Las fechas de corte del paquete SI-02 no coinciden: "
+            + ", ".join(f"{code}={value}" for code, value in sorted(non_empty_cutoffs.items()))
+        )
 
     summary = {
         "indicator_code": CODE,
@@ -209,9 +229,13 @@ def prepare_upload_package(filepaths: Iterable[Path], load_data: bool = True) ->
         "expected_files": len(EXPECTED_PACKAGE_CODES),
         "subindicators_found": sorted(subindicators.keys()),
         "missing_subindicators": missing,
+        "duplicate_subindicators": sorted(set(duplicate_subindicators)),
+        "unknown_files": unknown_files,
         "subindicators": subindicators,
         "cutoff_dates": {code: value for code, value in cutoff_dates.items()},
+        "cutoff_date_mismatch": cutoff_date_mismatch,
         "cutoff_date": _latest_date(cutoff_dates.values()),
+        "package_files": _package_file_status(subindicators, missing, duplicate_subindicators),
         "total_rows": sum(int(item.get("total_rows", 0)) for item in subindicators.values()),
         "total_columns": sum(int(item.get("total_columns", 0)) for item in subindicators.values()),
         "total_loaded_columns": sum(int(item.get("loaded_columns", 0)) for item in subindicators.values()),
@@ -225,6 +249,34 @@ def prepare_upload_package(filepaths: Iterable[Path], load_data: bool = True) ->
 
     validation = {"valid": not errors, "errors": errors, "warnings": warnings, "summary": summary}
     return {"validation": validation, "data": data, "cutoff_dates": cutoff_dates}
+
+
+def _package_file_status(
+    subindicators: dict[str, dict[str, Any]],
+    missing: list[str],
+    duplicate_subindicators: list[str],
+) -> list[dict[str, Any]]:
+    duplicates = set(duplicate_subindicators)
+    missing_set = set(missing)
+    items = []
+    for code in EXPECTED_PACKAGE_CODES:
+        spec = SUBINDICATORS[code]
+        summary = subindicators.get(code, {})
+        status = "missing" if code in missing_set else "duplicate" if code in duplicates else "ok"
+        items.append(
+            {
+                "subindicator_code": code,
+                "subindicator_official_code": spec.official_code,
+                "subindicator_name": spec.title,
+                "status": status,
+                "filename": summary.get("filename"),
+                "cutoff_date": summary.get("cutoff_date"),
+                "rows": summary.get("total_rows", 0),
+                "columns": summary.get("total_columns", 0),
+                "missing_columns": summary.get("missing_columns", []),
+            }
+        )
+    return items
 
 
 def _spec(subindicator_code: str) -> SubindicatorSpec:

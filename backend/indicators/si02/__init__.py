@@ -1,11 +1,7 @@
-"""SI-02 indicator package.
-
-The indicator is intentionally not registered in the public indicator registry
-until activation, persistence and frontend upload flow support the four-file
-package.
-"""
+"""SI-02 indicator package."""
 
 from .config import CODE, DEFAULT_PROVINCE, DEFAULT_TARGET_COVERAGE, NAME, SUBINDICATORS
+from .commitment import build_commitment_summary, current_commitment_met
 from .excel_loader import (
     identify_subindicator,
     load_sample_data,
@@ -31,6 +27,7 @@ __all__ = [
     "NAME",
     "SUBINDICATORS",
     "active_upload_id",
+    "build_commitment_summary",
     "identify_subindicator",
     "load_sample_data",
     "load_subindicator_data",
@@ -47,6 +44,7 @@ __all__ = [
     "build_report_summary",
     "build_active_report_summary",
     "build_subindicator_summary",
+    "current_commitment_met",
     "evaluate_dataframe",
     "evaluate_row",
     "get_filter_options",

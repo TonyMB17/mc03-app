@@ -823,3 +823,43 @@ Validacion visual:
 
 - En navegador local, `SI-02` muestra el selector de subindicadores en dashboard.
 - Al elegir `SI-02.04`, la vista cambia a `Incumplidos - SI-02.04` sin errores de consola.
+
+## Fase 6 completada - validacion operativa y compromiso SI-02
+
+Archivos actualizados:
+
+- `backend/indicators/si02/commitment.py`
+- `backend/indicators/si02/excel_loader.py`
+- `backend/indicators/si02/processor.py`
+- `backend/indicators/si02/storage.py`
+- `backend/indicators/si02/__init__.py`
+- `backend/schemas.py`
+- `frontend/src/DataUploadView.jsx`
+- `frontend/src/Dashboard.jsx`
+- `backend/indicators/si02/tests/test_si02_commitment.py`
+
+Capacidades implementadas:
+
+- Se agrego calculo explicito del compromiso SI-02 por verificacion:
+  - Primera verificacion mayo 2026: `SI-02.01` requiere 4 de 5 meses; `SI-02.02`, `SI-02.03` y `SI-02.04` requieren 1 mes.
+  - Segunda verificacion noviembre 2026: los cuatro subindicadores requieren 5 de 6 meses.
+- El resumen del dashboard ahora expone `commitment_summary` y `committed` refleja la verificacion vigente segun fecha de corte.
+- La vista Dashboard muestra un panel de compromiso SI-02 con estado global, regla aplicada y avance de cada subindicador.
+- La validacion del paquete SI-02 ahora informa:
+  - cantidad exacta de archivos esperados/recibidos,
+  - archivos faltantes,
+  - subindicadores duplicados,
+  - archivos no identificados,
+  - detalle por archivo/subindicador,
+  - inconsistencia de fechas de corte entre los cuatro Excel.
+- La vista de carga muestra una grilla de estado del paquete, con archivo, corte, registros, columnas y columnas faltantes por subindicador.
+- El historial de cargas muestra, cuando aplica, el desglose de filas por subindicador.
+- Se corrigio la descripcion obsoleta de `backend/indicators/si02/__init__.py`, que aun indicaba que SI-02 no estaba registrado.
+
+Validaciones ejecutadas:
+
+```powershell
+python -m py_compile backend\indicators\si02\commitment.py backend\indicators\si02\processor.py backend\indicators\si02\storage.py backend\indicators\si02\excel_loader.py backend\schemas.py
+npm run build
+python -m unittest backend.indicators.si02.tests.test_si02_commitment backend.indicators.si02.tests.test_si02_excel_contract backend.indicators.si02.tests.test_si02_rules backend.indicators.si02.tests.test_si02_storage backend.indicators.mc02.tests.test_mc02_rules
+```

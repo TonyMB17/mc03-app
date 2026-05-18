@@ -36,6 +36,7 @@ except ImportError:
     )
 
 from .config import CODE, DEFAULT_PROVINCE, DEFAULT_TARGET_COVERAGE, EXPECTED_PACKAGE_CODES, SUBINDICATORS
+from .commitment import build_commitment_summary, current_commitment_met
 from .evaluator import component_rules, evaluate_dataframe, evaluate_row
 from .processor import ALL_PROVINCES_TOKEN, filter_data, omiso_from_row
 from .utils import clean_value, parse_month_key, to_date, to_int, to_number
@@ -550,6 +551,7 @@ def report_summary_from_rows(
         monthly_item = {
             "month": row.period_label,
             "year": row.period_year,
+            "month_key": f"{row.period_year}_{row.period_month}",
             "in_verification_period": row.in_verification_period,
             "compliant": row.denominator > 0 and float(row.coverage or 0) >= target,
             "semaphore": "green" if row.denominator > 0 and float(row.coverage or 0) >= target else "red",
@@ -599,6 +601,7 @@ def report_summary_from_rows(
             {
                 "month": label,
                 "year": year,
+                "month_key": f"{year}_{month}",
                 "in_verification_period": True,
                 "compliant": compliant,
                 "semaphore": "green" if compliant else "red",
@@ -614,6 +617,8 @@ def report_summary_from_rows(
     period_start = date(first_month[0], first_month[1], 1) if first_month else date(2026, 1, 1)
     period_end = date(last_month[0], last_month[1], 28) if last_month else date(2026, 12, 31)
 
+    commitment_summary = build_commitment_summary(subindicators, upload.cutoff_date)
+
     return {
         "period_start": period_start,
         "period_end": period_end,
@@ -621,10 +626,11 @@ def report_summary_from_rows(
         "target_coverage": top_target,
         "months_evaluated": len(monthly),
         "months_met": sum(1 for item in monthly if item["compliant"]),
-        "committed": False,
+        "committed": current_commitment_met(subindicators, upload.cutoff_date),
         "monthly": monthly,
         "omisos": omissions_export,
         "subindicators": subindicators,
+        "commitment_summary": commitment_summary,
     }
 
 
