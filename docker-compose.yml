@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: indicadores-db
+    environment:
+      POSTGRES_DB: indicator_tracking
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d indicator_tracking"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: indicadores-backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/indicator_tracking
+      AUTH_ENABLED: "false"
+      AUTH_SECRET_KEY: change-this-secret-before-production
+      AUTH_TOKEN_TTL_MINUTES: "480"
+      AUTH_USERS_JSON: '{"clinico":{"password":"cambiar-clinico","role":"clinical","display_name":"Usuario clinico"},"supervisor":{"password":"cambiar-supervisor","role":"supervisor","display_name":"Usuario supervisor"},"admin":{"password":"cambiar-admin","role":"admin","display_name":"Administrador"}}'
+      BACKUP_RETENTION_DAYS: "30"
+      UPLOAD_RETENTION_DAYS: "90"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data_samples:/app/data_samples:ro
+      - backend_uploads:/app/backend/uploads
+      - backend_processed_uploads:/app/backend/processed_uploads
+      - backend_backups:/app/backend/backups
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: indicadores-frontend
+    depends_on:
+      - backend
+    ports:
+      - "4173:80"
+
+volumes:
+  postgres_data:
+  backend_uploads:
+  backend_processed_uploads:
+  backend_backups:

@@ -7,14 +7,14 @@ Esta carpeta contiene el backend FastAPI para el proyecto MC-03.
 1. Crear un entorno virtual:
 
 ```powershell
-python -m venv .venv
+C:\Users\USUARIO\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
 2. Instalar dependencias:
 
 ```powershell
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ## Arrancar el servidor
@@ -36,6 +36,8 @@ Si prefieres ejecutar desde la raíz del proyecto:
 ```powershell
 uvicorn backend.main:app --reload
 ```
+
+El entorno virtual esperado es `backend/.venv` con Python 3.12. Evita crear `.venv` o `.venv312` en la raiz del proyecto.
 
 ## Endpoints principales
 

@@ -11,21 +11,33 @@ Proyecto basado en el Sistema de Seguimiento Neonatal para la Red de Salud Abanc
 
 ## Como arrancar
 
+### Docker
+
+Para levantar PostgreSQL, backend y frontend juntos:
+
+```powershell
+docker compose up --build
+```
+
+La app queda disponible en `http://localhost:4173`. La guia completa esta en `docs/README_Docker.md`.
+
 ### Backend
 
 ```powershell
 cd backend
-python -m venv .venv
+C:\Users\USUARIO\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
 Tambien puedes arrancar desde la raiz del proyecto con:
 
 ```powershell
-uvicorn backend.main:app --reload
+backend\.venv\Scripts\python.exe -m uvicorn backend.main:app --reload
 ```
+
+El entorno virtual del backend debe vivir en `backend/.venv` y usar Python 3.12. No crear `.venv` ni `.venv312` en la raiz del proyecto.
 
 ### Frontend
 

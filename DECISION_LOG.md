@@ -1,5 +1,14 @@
 # Registro de decisiones y cambios - MC-03 App
 
+## 2026-05-19
+
+### Correccion de entorno Python
+- Se consolidaron los entornos virtuales del backend en `backend/.venv`.
+- Se eliminaron los entornos duplicados de la raiz: `.venv` y `.venv312`.
+- El entorno vigente usa Python 3.12.13 desde `backend/.venv/Scripts/python.exe`.
+- Se actualizaron `README.md` y `backend/README.md` para evitar recrear entornos virtuales fuera de `backend`.
+- Validacion tecnica: imports de FastAPI, pandas, SQLAlchemy, psycopg y uvicorn OK; `pip check` OK; `python -m compileall -q -x "backend[\\/]\\.venv" backend` OK; pruebas `backend.indicators.mc02.tests.test_mc02_rules`, `backend.indicators.si02.tests.test_si02_excel_contract` y `backend.indicators.si02.tests.test_si02_rules` OK con 31 pruebas y 2 omitidas.
+
 ## 2026-05-12
 
 ### Decisiones principales
