@@ -687,3 +687,16 @@ npm run dev
 - `Dashboard.jsx` muestra un panel de compromiso SI-02 con regla aplicada y avance por subindicador.
 - Se corrigio la descripcion obsoleta de `backend/indicators/si02/__init__.py`.
 - Validacion tecnica: `python -m py_compile` sobre SI-02, schemas y `backend/main.py` OK; `npm run build` OK; `python -m unittest backend.indicators.si02.tests.test_si02_commitment backend.indicators.si02.tests.test_si02_excel_contract backend.indicators.si02.tests.test_si02_rules backend.indicators.si02.tests.test_si02_storage backend.indicators.mc02.tests.test_mc02_rules` OK con 34 pruebas y 3 omitidas por no encontrar Excel reales en `E:/Downloads` o pruebas protegidas de BD.
+
+### Refactorización del Frontend y Diseño del Sistema
+- Se aplicó la guía de habilidades de React (.agents/skills) para resolver la complejidad de los componentes monolíticos del frontend (`SearchDNI.jsx` y `Dashboard.jsx`).
+- **Desacoplamiento de Lógica (Hooks)**:
+  - Se crearon los hooks personalizados [useDniSearch.js](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/hooks/useDniSearch.js) y [useDashboardData.js](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/hooks/useDashboardData.js) para separar la lógica de negocio, llamadas de API (axios) y estados del rendering.
+- **Modularización de Presentación (Componentes)**:
+  - Se extrajeron a la carpeta `src/components/` los componentes funcionales: [StatusPill.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/StatusPill.jsx), [DoseDetails.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/DoseDetails.jsx), [HemoglobinDetails.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/HemoglobinDetails.jsx), [IronDetails.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/IronDetails.jsx), [PeriodBadge.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/PeriodBadge.jsx) y [SemaphoreBadge.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/SemaphoreBadge.jsx).
+- **Simplificación de Vistas**:
+  - [SearchDNI.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/SearchDNI.jsx) y [Dashboard.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/Dashboard.jsx) ahora consumen los nuevos hooks y delegan la renderización a los componentes modulares específicos.
+- **Validación**:
+  - Compilación de producción con Vite (`npm run build`) ejecutada con éxito y sin advertencias/errores.
+  - Ejecución de pruebas unitarias del backend exitosa para asegurar la no regresión.
+
