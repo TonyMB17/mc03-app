@@ -59,13 +59,22 @@ Variable principal:
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/indicator_tracking
 ```
 
-## Seguridad por roles
+## Seguridad por roles y usuarios
 
-La fase 9 agrega autenticacion por token firmado y tres roles:
+La seguridad usa usuarios persistidos en PostgreSQL, contrasenas con hash Argon2 y token Bearer firmado con `AUTH_SECRET_KEY`. Se mantienen tres roles base:
 
 - `clinical`: busqueda por DNI/CNV.
 - `supervisor`: busqueda, dashboard y descargas.
-- `admin`: busqueda, dashboard, descargas, configuracion y carga de datos.
+- `admin`: busqueda, dashboard, descargas, configuracion, carga de datos y administracion de usuarios.
+
+Permisos principales:
+
+- `search`
+- `dashboard`
+- `downloads`
+- `config`
+- `data_upload`
+- `users_admin`
 
 Variables:
 
@@ -76,7 +85,16 @@ AUTH_TOKEN_TTL_MINUTES=480
 AUTH_USERS_JSON={"admin":{"password":"cambiar-admin","role":"admin","display_name":"Administrador"}}
 ```
 
-En desarrollo `AUTH_ENABLED=false` deja pasar como administrador local para no bloquear pruebas.
+`AUTH_USERS_JSON` se usa como semilla inicial: crea los usuarios indicados solo si aun no existen. Si no se define y la tabla esta vacia, el sistema crea un usuario `admin` con contrasena temporal `admin123`.
+
+En desarrollo `AUTH_ENABLED=false` deja pasar como administrador local para no bloquear pruebas. En entorno real, usar `AUTH_ENABLED=true`, una clave larga en `AUTH_SECRET_KEY` y cambiar las contrasenas iniciales desde la vista **Usuarios**.
+
+Endpoints administrativos:
+
+- `GET /api/security/users`
+- `POST /api/security/users`
+- `PATCH /api/security/users/{username}`
+- `GET /api/security/roles`
 
 ## Auditoria y respaldo
 

@@ -81,8 +81,8 @@ input {
   }
 
   .field:focus {
-    border-color: #0F766E;
-    box-shadow: 0 0 0 4px rgba(206, 255, 250, 0.82);
+    border-color: #0EA5E9;
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.16);
   }
 
   .icon-button {
@@ -98,13 +98,13 @@ input {
   }
 
   .btn-primary {
-    background: #0F766E;
+    background: #0EA5E9;
     color: #FFFFFF;
-    box-shadow: 0 10px 24px rgba(15, 118, 110, 0.22);
+    box-shadow: 0 10px 24px rgba(14, 165, 233, 0.24);
   }
 
   .btn-primary:hover {
-    background: #0B5F59;
+    background: #0284C7;
     transform: translateY(-1px);
   }
 
@@ -115,9 +115,9 @@ input {
   }
 
   .btn-secondary:hover {
-    border-color: #0F766E;
-    background: #F2FFFD;
-    color: #0B5F59;
+    border-color: #0EA5E9;
+    background: #F0F9FF;
+    color: #0369A1;
     transform: translateY(-1px);
   }
 }

@@ -687,3 +687,12 @@ npm run dev
 - `Dashboard.jsx` muestra un panel de compromiso SI-02 con regla aplicada y avance por subindicador.
 - Se corrigio la descripcion obsoleta de `backend/indicators/si02/__init__.py`.
 - Validacion tecnica: `python -m py_compile` sobre SI-02, schemas y `backend/main.py` OK; `npm run build` OK; `python -m unittest backend.indicators.si02.tests.test_si02_commitment backend.indicators.si02.tests.test_si02_excel_contract backend.indicators.si02.tests.test_si02_rules backend.indicators.si02.tests.test_si02_storage backend.indicators.mc02.tests.test_mc02_rules` OK con 34 pruebas y 3 omitidas por no encontrar Excel reales en `E:/Downloads` o pruebas protegidas de BD.
+
+### Seguridad - usuarios, roles y permisos
+- Se decidio implementar una primera capa DB-backed sobre la arquitectura actual antes de integrar un paquete mas invasivo como `fastapi-users`.
+- Se agregaron tablas PostgreSQL para usuarios, roles, permisos y relaciones mediante la migracion `0003_users_roles_permissions`.
+- Las contrasenas usan hash Argon2 con `pwdlib[argon2]` y los tokens usan JWT firmado con `PyJWT`.
+- Roles iniciales: `clinical`, `supervisor` y `admin`; el permiso nuevo `users_admin` habilita la administracion de usuarios.
+- `AUTH_USERS_JSON` queda como semilla inicial; si no hay usuarios, se crea `admin / admin123` como cuenta temporal.
+- Se agrego la vista frontend **Usuarios** para crear cuentas, asignar rol, activar/desactivar y renovar contrasenas.
+- Validacion local: migracion Alembic a `0003`, seed de usuarios/roles, login `admin / cambiar-admin`, endpoint `/api/security/users`, pruebas unitarias de seguridad y `npm run build` OK.

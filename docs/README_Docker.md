@@ -115,6 +115,10 @@ AUTH_SECRET_KEY: "un-secreto-largo-y-unico"
 AUTH_USERS_JSON: '{"admin":{"password":"clave-segura","role":"admin","display_name":"Administrador"}}'
 ```
 
+Los usuarios, roles y permisos se guardan en PostgreSQL. `AUTH_USERS_JSON` funciona como semilla inicial y no reemplaza usuarios ya creados. Si la tabla esta vacia y no se define esa variable, el backend crea `admin / admin123` como cuenta temporal.
+
+Con autenticacion activa, el administrador puede entrar a la vista **Usuarios** para crear cuentas, asignar roles, activar/desactivar accesos y renovar contrasenas.
+
 ## Puertos
 
 - Frontend: `4173:80`

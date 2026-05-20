@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, BarChart3, Baby, DatabaseZap, LogOut, Search, Settings2, ShieldCheck, SlidersHorizontal, UserCheck } from 'lucide-react';
+import { Activity, BarChart3, Baby, DatabaseZap, LogOut, Search, Settings2, ShieldCheck, SlidersHorizontal, UserCheck, UsersRound } from 'lucide-react';
 import api, { clearAuth, loadStoredAuth, saveAuthUser, setAuthToken } from './api/client';
 import IndicatorSelector from './components/IndicatorSelector';
 import indicators, { indicatorList } from './indicators/registry';
@@ -8,6 +8,7 @@ import Dashboard from './pages/IndicatorDashboard';
 import DataUploadView from './pages/DataUploadView';
 import LoginView from './LoginView';
 import SearchDNI from './pages/RecordSearch';
+import SecurityUsers from './pages/SecurityUsers';
 
 const views = {
   search: {
@@ -33,6 +34,12 @@ const views = {
     description: 'Carga, valida y activa el Excel operativo del indicador seleccionado.',
     icon: DatabaseZap,
     permission: 'data_upload',
+  },
+  users: {
+    title: 'Usuarios y permisos',
+    description: 'Administra accesos, roles y permisos de la plataforma.',
+    icon: UsersRound,
+    permission: 'users_admin',
   },
 };
 
@@ -208,6 +215,11 @@ function App() {
                   Carga datos
                 </NavButton>
               )}
+              {permissions.includes('users_admin') && (
+                <NavButton active={safeActiveView === 'users'} icon={UsersRound} onClick={() => setActiveView('users')}>
+                  Usuarios
+                </NavButton>
+              )}
             </nav>
           </div>
         </header>
@@ -233,6 +245,7 @@ function App() {
             />
           )}
           {safeActiveView === 'data' && <DataUploadView selectedIndicator={selectedIndicator} />}
+          {safeActiveView === 'users' && <SecurityUsers />}
         </main>
       </div>
     </div>

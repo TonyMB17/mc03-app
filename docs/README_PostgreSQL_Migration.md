@@ -136,13 +136,15 @@ Objetivo:
 - Todos persisten en tablas generales.
 - El frontend consume una API comun.
 
-## Fase 9: Seguridad y roles
+## Fase 9: Seguridad, usuarios y roles
 
 Roles previstos:
 
 - Usuario clinico: busqueda por DNI/CNV.
 - Usuario supervisor: dashboard y descargas.
 - Administrador: carga, configuracion y activacion.
+
+La implementacion actual persiste usuarios, roles y permisos en PostgreSQL. `AUTH_USERS_JSON` queda como semilla inicial para despliegues, pero la administracion operativa se hace desde la vista de usuarios del frontend.
 
 ## Fase 10: Auditoria y respaldo
 
@@ -267,15 +269,20 @@ alembic -c alembic.ini upgrade head
 
 ### Fase 9 completada como control de acceso por roles
 
-- Se agrego `backend/security.py` con autenticacion por usuario/contrasena configurada en `.env` y tokens Bearer firmados con `AUTH_SECRET_KEY`.
+- Se agrego `backend/security.py` con autenticacion por usuario/contrasena y tokens Bearer firmados con `AUTH_SECRET_KEY`.
 - Roles implementados:
   - `clinical`: busqueda por DNI/CNV.
   - `supervisor`: busqueda, dashboard y descargas.
-  - `admin`: busqueda, dashboard, descargas, configuracion, carga y activacion.
+  - `admin`: busqueda, dashboard, descargas, configuracion, carga, activacion y administracion de usuarios.
 - Endpoints protegidos:
   - Busqueda: `clinical`, `supervisor`, `admin`.
   - Reportes y descargas: `supervisor`, `admin`.
   - Configuracion y carga de datos: `admin`.
+- Se agregaron tablas `app_users`, `app_roles`, `app_permissions`, `app_user_roles` y `app_role_permissions` mediante `backend/alembic/versions/0003_users_roles_permissions.py`.
+- Las contrasenas se almacenan con hash Argon2 mediante `pwdlib[argon2]`.
+- `AUTH_USERS_JSON` funciona como semilla inicial y no reemplaza cuentas existentes.
+- Se agregaron endpoints administrativos `GET/POST/PATCH /api/security/users` y `GET /api/security/roles`.
+- El frontend agrega vista **Usuarios** para crear cuentas, asignar rol, activar/desactivar usuarios y renovar contrasenas.
 - El frontend agrega login, conserva token en `localStorage`, envia `Authorization: Bearer ...` y oculta vistas sin permiso.
 - Las descargas Excel ahora usan el cliente autenticado para poder enviar el token.
 - En desarrollo `AUTH_ENABLED=false` permite trabajar como administrador local sin bloquear pruebas.

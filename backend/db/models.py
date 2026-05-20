@@ -222,7 +222,93 @@ class IndicatorAuditEvent(Base):
     upload: Mapped[IndicatorUpload] = relationship(back_populates="audit_events")
 
 
+class AppUser(TimestampMixin, Base):
+    __tablename__ = "app_users"
+    __table_args__ = (
+        UniqueConstraint("username", name="uq_app_users_username"),
+        Index("ix_app_users_active", "is_active"),
+    )
+
+    id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    username: Mapped[str] = mapped_column(String(80), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    roles: Mapped[list["AppUserRole"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class AppRole(TimestampMixin, Base):
+    __tablename__ = "app_roles"
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_app_roles_code"),
+    )
+
+    id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    code: Mapped[str] = mapped_column(String(64), nullable=False)
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    users: Mapped[list["AppUserRole"]] = relationship(back_populates="role", cascade="all, delete-orphan")
+    permissions: Mapped[list["AppRolePermission"]] = relationship(back_populates="role", cascade="all, delete-orphan")
+
+
+class AppPermission(TimestampMixin, Base):
+    __tablename__ = "app_permissions"
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_app_permissions_code"),
+    )
+
+    id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    code: Mapped[str] = mapped_column(String(80), nullable=False)
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    roles: Mapped[list["AppRolePermission"]] = relationship(back_populates="permission", cascade="all, delete-orphan")
+
+
+class AppUserRole(Base):
+    __tablename__ = "app_user_roles"
+    __table_args__ = (
+        UniqueConstraint("user_id", "role_id", name="uq_app_user_roles_user_role"),
+        Index("ix_app_user_roles_user", "user_id"),
+        Index("ix_app_user_roles_role", "role_id"),
+    )
+
+    user_id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("app_users.id", ondelete="CASCADE"), primary_key=True)
+    role_id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("app_roles.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    user: Mapped[AppUser] = relationship(back_populates="roles")
+    role: Mapped[AppRole] = relationship(back_populates="users")
+
+
+class AppRolePermission(Base):
+    __tablename__ = "app_role_permissions"
+    __table_args__ = (
+        UniqueConstraint("role_id", "permission_id", name="uq_app_role_permissions_role_permission"),
+        Index("ix_app_role_permissions_role", "role_id"),
+        Index("ix_app_role_permissions_permission", "permission_id"),
+    )
+
+    role_id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("app_roles.id", ondelete="CASCADE"), primary_key=True)
+    permission_id: Mapped[PythonUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("app_permissions.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    role: Mapped[AppRole] = relationship(back_populates="permissions")
+    permission: Mapped[AppPermission] = relationship(back_populates="roles")
+
+
 __all__ = [
+    "AppPermission",
+    "AppRole",
+    "AppRolePermission",
+    "AppUser",
+    "AppUserRole",
     "Base",
     "ComponentResult",
     "DashboardSummary",

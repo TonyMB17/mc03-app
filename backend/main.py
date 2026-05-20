@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from sqlalchemy.orm import Session
 
 try:
     from .schemas import (
@@ -25,6 +26,11 @@ try:
         HealthResponse,
         LoginRequest,
         LoginResponse,
+        RolesResponse,
+        UserAdminItem,
+        UserCreateRequest,
+        UserUpdateRequest,
+        UsersResponse,
         AuditEventsResponse,
         OmisosResponse,
         ReportSummary,
@@ -40,10 +46,17 @@ try:
         TOKEN_TYPE,
         authenticate_user,
         create_access_token,
+        create_user,
         current_user,
+        ensure_security_defaults,
+        list_roles,
+        list_users,
+        require_permissions,
         require_roles,
+        update_user,
         user_response,
     )
+    from .db.session import get_db
 except ImportError:
     from schemas import (
         DataActivateRequest,
@@ -53,6 +66,11 @@ except ImportError:
         HealthResponse,
         LoginRequest,
         LoginResponse,
+        RolesResponse,
+        UserAdminItem,
+        UserCreateRequest,
+        UserUpdateRequest,
+        UsersResponse,
         AuditEventsResponse,
         OmisosResponse,
         ReportSummary,
@@ -68,10 +86,17 @@ except ImportError:
         TOKEN_TYPE,
         authenticate_user,
         create_access_token,
+        create_user,
         current_user,
+        ensure_security_defaults,
+        list_roles,
+        list_users,
+        require_permissions,
         require_roles,
+        update_user,
         user_response,
     )
+    from db.session import get_db
 
 app = FastAPI(
     title="Sistema de Seguimiento Neonatal - MC-03",
@@ -597,6 +622,18 @@ def startup_event():
                 "current_data_summary": None,
             }
 
+    try:
+        try:
+            from .db.session import SessionLocal
+        except ImportError:
+            from db.session import SessionLocal
+
+        with SessionLocal() as db:
+            ensure_security_defaults(db)
+    except Exception:
+        # The app can still run in development mode without a reachable DB.
+        pass
+
 
 @app.get("/health", response_model=HealthResponse, tags=["Sistema"])
 def health_check():
@@ -605,8 +642,9 @@ def health_check():
 
 
 @app.post("/api/auth/login", response_model=LoginResponse, tags=["Seguridad"])
-def api_auth_login(payload: LoginRequest):
-    user = authenticate_user(payload.username, payload.password)
+def api_auth_login(payload: LoginRequest, db: Session = Depends(get_db)):
+    ensure_security_defaults(db)
+    user = authenticate_user(db, payload.username, payload.password)
     if user is None:
         raise HTTPException(status_code=401, detail="Usuario o contrasena incorrectos")
     return LoginResponse(access_token=create_access_token(user), token_type=TOKEN_TYPE, user=user_response(user))
@@ -615,6 +653,49 @@ def api_auth_login(payload: LoginRequest):
 @app.get("/api/auth/me", tags=["Seguridad"])
 def api_auth_me(user=Depends(current_user)):
     return user_response(user)
+
+
+@app.get("/api/security/users", response_model=UsersResponse, tags=["Seguridad"])
+def api_security_users(
+    _user=Depends(require_permissions("users_admin")),
+    db: Session = Depends(get_db),
+):
+    return UsersResponse(users=list_users(db))
+
+
+@app.post("/api/security/users", response_model=UserAdminItem, tags=["Seguridad"])
+def api_security_create_user(
+    payload: UserCreateRequest,
+    _user=Depends(require_permissions("users_admin")),
+    db: Session = Depends(get_db),
+):
+    return create_user(
+        db,
+        username=payload.username.strip(),
+        password=payload.password,
+        display_name=payload.display_name.strip(),
+        role=payload.role,
+        is_active=payload.is_active,
+    )
+
+
+@app.patch("/api/security/users/{username}", response_model=UserAdminItem, tags=["Seguridad"])
+def api_security_update_user(
+    username: str,
+    payload: UserUpdateRequest,
+    _user=Depends(require_permissions("users_admin")),
+    db: Session = Depends(get_db),
+):
+    return update_user(db, username, payload.model_dump(exclude_unset=True))
+
+
+@app.get("/api/security/roles", response_model=RolesResponse, tags=["Seguridad"])
+def api_security_roles(
+    _user=Depends(require_permissions("users_admin")),
+    db: Session = Depends(get_db),
+):
+    ensure_security_defaults(db)
+    return RolesResponse(roles=list_roles(db))
 
 
 @app.get("/api/indicators", tags=["Sistema"])
