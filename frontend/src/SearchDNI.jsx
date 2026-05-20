@@ -1,11 +1,8 @@
-import { useState } from 'react';
-import api from './api/client';
 import {
   AlertTriangle,
   Baby,
   CalendarClock,
   ChevronDown,
-  CheckCircle2,
   ClipboardList,
   Hospital,
   IdCard,
@@ -18,42 +15,13 @@ import {
   TestTube2,
   Timer,
   UserRound,
-  XCircle,
 } from 'lucide-react';
+import { useDniSearch } from './hooks/useDniSearch';
+import StatusPill from './components/StatusPill';
+import DoseDetails from './components/DoseDetails';
+import HemoglobinDetails from './components/HemoglobinDetails';
+import IronDetails from './components/IronDetails';
 import { formatShortDate } from './utils/dates';
-
-const statusStyles = {
-  cumple: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  advertencia: 'bg-amber-50 text-amber-700 ring-amber-200',
-  programado: 'bg-blue-50 text-blue-700 ring-blue-200',
-  incumplimiento: 'bg-red-50 text-red-700 ring-red-200',
-  incumplimiento_fuera_plazo: 'bg-red-50 text-red-700 ring-red-200',
-  no_cumple: 'bg-red-50 text-red-700 ring-red-200',
-  pendiente: 'bg-slate-100 text-clinic-muted ring-slate-200',
-  pendiente_en_plazo: 'bg-amber-50 text-amber-700 ring-amber-200',
-};
-
-const statusLabels = {
-  cumple: 'Cumple',
-  advertencia: 'En ventana',
-  programado: 'Programado',
-  incumplimiento: 'Incumple',
-  incumplimiento_fuera_plazo: 'Fuera de plazo',
-  no_cumple: 'No cumple',
-  pendiente: 'Pendiente',
-  pendiente_en_plazo: 'Pendiente en plazo',
-};
-
-const statusIcons = {
-  cumple: CheckCircle2,
-  advertencia: AlertTriangle,
-  programado: CalendarClock,
-  incumplimiento: XCircle,
-  incumplimiento_fuera_plazo: XCircle,
-  no_cumple: XCircle,
-  pendiente: Timer,
-  pendiente_en_plazo: AlertTriangle,
-};
 
 const componentLabels = {
   BCG: 'BCG',
@@ -68,16 +36,6 @@ const componentLabels = {
   hierro_mayor_6m: 'Hierro mayor de 6 meses',
   hemoglobina: 'Dosaje de hemoglobina',
 };
-
-function StatusPill({ estado = 'pendiente' }) {
-  const Icon = statusIcons[estado] ?? statusIcons.pendiente;
-  return (
-    <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold ring-1 ${statusStyles[estado] ?? statusStyles.pendiente}`}>
-      <Icon className="h-4 w-4" />
-      {statusLabels[estado] ?? statusLabels.pendiente}
-    </span>
-  );
-}
 
 function formatDate(value) {
   return formatShortDate(value);
@@ -96,155 +54,6 @@ function DetailMessage({ item }) {
         </p>
       )}
     </div>
-  );
-}
-
-const doseStatusStyles = {
-  registrada: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  registrada_no_exigible: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  no_registrada: 'bg-red-50 text-red-700 ring-red-200',
-  fuera_plazo: 'bg-red-50 text-red-700 ring-red-200',
-  no_requerida: 'bg-slate-100 text-clinic-muted ring-slate-200',
-};
-
-const doseStatusLabels = {
-  registrada: 'Valida',
-  registrada_no_exigible: 'Valida',
-  no_registrada: 'No registrada',
-  fuera_plazo: 'Fuera de plazo',
-  no_requerida: 'No requerida',
-};
-
-function DoseDetails({ doses = [] }) {
-  if (!doses.length) return null;
-  const registeredCount = doses.filter((dose) => dose.registrada).length;
-  const issueCount = doses.filter((dose) => !dose.cumple).length;
-  const summaryText = registeredCount > 0
-    ? `${registeredCount} dosis registrada${registeredCount === 1 ? '' : 's'}${issueCount ? ` / ${issueCount} con observacion` : ''}`
-    : `${issueCount || doses.length} dosis requerida${(issueCount || doses.length) === 1 ? '' : 's'} sin registro`;
-
-  return (
-    <details className="mt-3 rounded-xl border border-clinic-border bg-white/80 p-3">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-clinic-ink">
-        <span>{summaryText}</span>
-        <ChevronDown className="h-4 w-4 text-clinic-violet" />
-      </summary>
-      <div className="mt-3 space-y-2">
-        {doses.map((dose) => (
-          <div key={`${dose.label}-${dose.fecha}-${dose.codigo}`} className="rounded-lg bg-clinic-mint/30 p-3 text-xs text-clinic-muted">
-            <div className="grid gap-2 sm:grid-cols-[0.7fr_1fr_0.8fr_auto] sm:items-start">
-              <p>
-                <span className="block font-bold text-clinic-ink">{dose.label}</span>
-                {formatDate(dose.fecha)}
-              </p>
-              <p>
-                <span className="block font-bold text-clinic-ink">Codigo</span>
-                {dose.codigo || '-'}{dose.lab ? ` - LAB ${dose.lab}` : ''}
-              </p>
-              <p>
-                <span className="block font-bold text-clinic-ink">Edad</span>
-                {dose.edad_atencion_dias ?? '-'} dias
-              </p>
-              <span className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 font-bold ring-1 ${doseStatusStyles[dose.estado] ?? doseStatusStyles.no_requerida}`}>
-                {doseStatusLabels[dose.estado] ?? dose.estado}
-              </span>
-            </div>
-            {!dose.cumple && (dose.ventana_inicio || dose.ventana_fin) && (
-              <p className="mt-2 rounded-md bg-white/70 px-2 py-1 font-semibold text-clinic-muted">
-                Ventana de esta dosis: {formatDate(dose.ventana_inicio)} - {formatDate(dose.ventana_fin)}
-              </p>
-            )}
-            {dose.motivo && !dose.cumple && (
-              <p className="mt-2 rounded-md bg-white/70 px-2 py-1 font-semibold text-clinic-muted">{dose.motivo}</p>
-            )}
-          </div>
-        ))}
-      </div>
-    </details>
-  );
-}
-
-function HemoglobinDetails({ data }) {
-  const isProgrammed = data.estado === 'programado';
-  const hasWindow = data.fecha_inicio || data.fecha_limite;
-  if (data.cumple && !isProgrammed) return null;
-  if (!hasWindow && !data.fecha && data.edad_atencion_dias == null) return null;
-
-  if (isProgrammed) {
-    return (
-      <div className="mt-3 rounded-xl border border-clinic-border bg-clinic-mint/25 p-3 text-sm text-clinic-muted">
-        <span className="block text-xs font-bold uppercase tracking-[0.12em] text-clinic-muted">Ventana programada del dosaje</span>
-        <span className="font-bold text-clinic-ink">{formatDate(data.fecha_inicio)} - {formatDate(data.fecha_limite)}</span>
-        <span className="ml-2 text-clinic-muted">(170 a 209 dias)</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-3 grid gap-2 rounded-xl border border-clinic-border bg-clinic-mint/25 p-3 text-sm text-clinic-muted sm:grid-cols-2">
-      <p>
-        <span className="block text-xs font-bold uppercase tracking-[0.12em] text-clinic-muted">Fecha de dosaje</span>
-        <span className="font-bold text-clinic-ink">{formatDate(data.fecha)}</span>
-      </p>
-      <p>
-        <span className="block text-xs font-bold uppercase tracking-[0.12em] text-clinic-muted">Edad al dosaje</span>
-        <span className="font-bold text-clinic-ink">
-          {data.edad_atencion_dias ?? '-'}{data.edad_atencion_dias != null ? ' dias' : ''}
-        </span>
-      </p>
-      {hasWindow && (
-        <p className="sm:col-span-2">
-          <span className="block text-xs font-bold uppercase tracking-[0.12em] text-clinic-muted">Ventana valida del dosaje</span>
-          <span className="font-bold text-clinic-ink">{formatDate(data.fecha_inicio)} - {formatDate(data.fecha_limite)}</span>
-          <span className="ml-2 text-clinic-muted">(170 a 209 dias)</span>
-        </p>
-      )}
-    </div>
-  );
-}
-
-function IronDetails({ data }) {
-  const deliveries = data.entregas ?? [];
-  if (!deliveries.length || (data.cumple && deliveries.length <= 1)) return null;
-
-  return (
-    <details className="mt-3 rounded-xl border border-clinic-border bg-white/80 p-3">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-clinic-ink">
-        <span>{deliveries.length} entrega{deliveries.length === 1 ? '' : 's'} registrada{deliveries.length === 1 ? '' : 's'}</span>
-        <ChevronDown className="h-4 w-4 text-clinic-violet" />
-      </summary>
-      <div className="mt-3 space-y-2">
-        {deliveries.map((delivery) => (
-          <div key={`${delivery.label}-${delivery.fecha}-${delivery.codigo}`} className="rounded-lg bg-clinic-mint/30 p-3 text-xs text-clinic-muted">
-            <div className="grid gap-2 sm:grid-cols-[0.8fr_1fr_0.8fr_0.8fr]">
-              <p>
-                <span className="block font-bold text-clinic-ink">{delivery.label}</span>
-                {formatDate(delivery.fecha)}
-              </p>
-              <p>
-                <span className="block font-bold text-clinic-ink">Tipo</span>
-                {delivery.tipo || '-'}
-              </p>
-              <p>
-                <span className="block font-bold text-clinic-ink">Codigo</span>
-                {delivery.codigo || '-'}{delivery.lab ? ` - LAB ${delivery.lab}` : ''}
-              </p>
-              <p>
-                <span className="block font-bold text-clinic-ink">Edad</span>
-                {delivery.edad_atencion_dias ?? '-'} dias
-              </p>
-            </div>
-            {(delivery.codigo_anemia || delivery.intervalo_dias || delivery.establecimiento_atencion) && (
-              <p className="mt-2 rounded-md bg-white/70 px-2 py-1 font-semibold text-clinic-muted">
-                {delivery.codigo_anemia ? `Dx anemia: ${delivery.codigo_anemia}. ` : ''}
-                {delivery.intervalo_dias != null ? `Intervalo: ${delivery.intervalo_dias} dias. ` : ''}
-                {delivery.establecimiento_atencion ? `EESS: ${delivery.establecimiento_atencion}.` : ''}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
-    </details>
   );
 }
 
@@ -280,7 +89,9 @@ function SI02ComponentCard({ data }) {
           <p className="font-bold text-clinic-ink">{data.label || 'Componente'}</p>
           <p className="text-sm text-clinic-muted">Codigo: {data.codigo || '-'}</p>
           <p className="text-sm text-clinic-muted">Fecha: {formatDate(data.fecha)}</p>
-          <p className="text-sm text-clinic-muted">Intervalo/edad: {data.intervalo_dias != null ? `${data.intervalo_dias} dias` : '-'}</p>
+          <p className="text-sm text-clinic-muted">
+            Intervalo/edad: {data.intervalo_dias != null ? `${data.intervalo_dias} dias` : '-'}
+          </p>
           <p className="text-sm text-clinic-muted">LAB: {data.lab || '-'}</p>
           <p className="text-sm text-clinic-muted">Ventana: {data.ventana_normativa || '-'}</p>
         </div>
@@ -289,17 +100,35 @@ function SI02ComponentCard({ data }) {
       {deliveries.length > 0 && (
         <details className="mt-3 rounded-xl border border-clinic-border bg-white/80 p-3">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-clinic-ink">
-            <span>{deliveries.length} entrega{deliveries.length === 1 ? '' : 's'} registrada{deliveries.length === 1 ? '' : 's'}</span>
+            <span>
+              {deliveries.length} entrega{deliveries.length === 1 ? '' : 's'} registrada
+              {deliveries.length === 1 ? '' : 's'}
+            </span>
             <ChevronDown className="h-4 w-4 text-clinic-violet" />
           </summary>
           <div className="mt-3 space-y-2">
             {deliveries.map((delivery) => (
-              <div key={`${delivery.number}-${delivery.date}-${delivery.code}`} className="rounded-lg bg-clinic-mint/30 p-3 text-xs text-clinic-muted">
+              <div
+                key={`${delivery.number}-${delivery.date}-${delivery.code}`}
+                className="rounded-lg bg-clinic-mint/30 p-3 text-xs text-clinic-muted"
+              >
                 <div className="grid gap-2 sm:grid-cols-4">
-                  <p><span className="block font-bold text-clinic-ink">Entrega {delivery.number}</span>{formatDate(delivery.date)}</p>
-                  <p><span className="block font-bold text-clinic-ink">Codigo</span>{delivery.code || '-'}</p>
-                  <p><span className="block font-bold text-clinic-ink">LAB</span>{delivery.lab || '-'}</p>
-                  <p><span className="block font-bold text-clinic-ink">Intervalo</span>{delivery.interval != null ? `${delivery.interval} dias` : '-'}</p>
+                  <p>
+                    <span className="block font-bold text-clinic-ink">Entrega {delivery.number}</span>
+                    {formatDate(delivery.date)}
+                  </p>
+                  <p>
+                    <span className="block font-bold text-clinic-ink">Codigo</span>
+                    {delivery.code || '-'}
+                  </p>
+                  <p>
+                    <span className="block font-bold text-clinic-ink">LAB</span>
+                    {delivery.lab || '-'}
+                  </p>
+                  <p>
+                    <span className="block font-bold text-clinic-ink">Intervalo</span>
+                    {delivery.interval != null ? `${delivery.interval} dias` : '-'}
+                  </p>
                 </div>
               </div>
             ))}
@@ -312,43 +141,35 @@ function SI02ComponentCard({ data }) {
 }
 
 function SearchDNI({ selectedProvince, selectedIndicator }) {
-  const [dni, setDni] = useState('');
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const { dni, setDni, result, error, loading, search } = useDniSearch(
+    selectedProvince,
+    selectedIndicator,
+  );
+
   const isMc02 = selectedIndicator === 'mc02';
   const isSi02 = selectedIndicator === 'si02';
   const searchLabel = isMc02 || isSi02 ? 'DNI o CNV del niño' : 'DNI del recien nacido';
   const packageTitle = isMc02 ? 'Paquete integrado MC-02' : isSi02 ? 'Subindicadores SI-02' : 'Componentes del paquete';
   const packageIcon = isMc02 ? PackageCheck : Syringe;
-  const finalCompleteText = isMc02 ? 'Paquete integrado completo' : isSi02 ? 'Todos los subindicadores encontrados cumplen' : 'Paquete completo';
-  const finalIncompleteText = isMc02 ? 'Paquete integrado incompleto, requiere seguimiento' : isSi02 ? 'Tiene subindicadores con observaciones' : 'Paquete incompleto, requiere intervencion';
+  const finalCompleteText = isMc02
+    ? 'Paquete integrado completo'
+    : isSi02
+    ? 'Todos los subindicadores encontrados cumplen'
+    : 'Paquete completo';
+  const finalIncompleteText = isMc02
+    ? 'Paquete integrado incompleto, requiere seguimiento'
+    : isSi02
+    ? 'Tiene subindicadores con observaciones'
+    : 'Paquete incompleto, requiere intervencion';
 
-  const handleSearch = async (event) => {
+  const handleSearchSubmit = (event) => {
     event.preventDefault();
-    if (!dni.trim()) {
-      setError('Ingrese un DNI valido');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    try {
-      const params = new URLSearchParams({ province: selectedProvince, indicator: selectedIndicator });
-      const response = await api.get(`/api/search/dni/${dni.trim()}?${params.toString()}`);
-      setResult(response.data);
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Error en la busqueda');
-    } finally {
-      setLoading(false);
-    }
+    search();
   };
 
   return (
     <section className="panel p-5 lg:p-6">
-      <form onSubmit={handleSearch} className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+      <form onSubmit={handleSearchSubmit} className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <label htmlFor="dni" className="text-sm font-bold uppercase tracking-[0.18em] text-clinic-muted">
             {searchLabel}
@@ -378,7 +199,7 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
       {error && (
         <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 font-semibold text-red-700">
           <span className="inline-flex items-center gap-2">
-            <ShieldAlert className="h-5 w-5" />
+            <AlertTriangle className="h-5 w-5" />
             {error}
           </span>
         </div>
@@ -394,10 +215,20 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
               <InfoItem
                 icon={UserRound}
                 label="Nombre"
-                value={[result.personal.afi_nombres, result.personal.afi_appaterno, result.personal.afi_apmaterno].filter(Boolean).join(' ')}
+                value={[
+                  result.personal.afi_nombres,
+                  result.personal.afi_appaterno,
+                  result.personal.afi_apmaterno,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
               />
               <InfoItem icon={CalendarClock} label="Fecha de nacimiento" value={formatDate(result.personal.fec_Nac)} />
-              <InfoItem icon={Timer} label="Peso / EG" value={`${result.personal.peso || '-'} g / ${result.personal.edadGEst || '-'} sem.`} />
+              <InfoItem
+                icon={Timer}
+                label="Peso / EG"
+                value={`${result.personal.peso || '-'} g / ${result.personal.edadGEst || '-'} sem.`}
+              />
               <div className="rounded-xl border border-clinic-violet/10 bg-white/62 p-4">
                 <p className="inline-flex items-center gap-2 text-sm font-semibold text-clinic-muted">
                   <Hospital className="h-4 w-4 text-clinic-violet" />
@@ -405,7 +236,8 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
                 </p>
                 <p className="mt-2 font-bold text-clinic-ink">{result.personal.Des_EESS || 'Sin establecimiento'}</p>
                 <p className="mt-1 text-xs text-clinic-muted">
-                  {result.personal.Desc_prov || '-'} / {result.personal.Des_MicroRed || '-'} / RENAES {result.personal.pre_CodigoRENAES || '-'}
+                  {result.personal.Desc_prov || '-'} / {result.personal.Des_MicroRed || '-'} / RENAES{' '}
+                  {result.personal.pre_CodigoRENAES || '-'}
                 </p>
               </div>
             </div>
@@ -430,10 +262,15 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
               <SectionTitle icon={packageIcon} title={packageTitle} />
               <div className="mt-4 space-y-4">
                 {result.subindicators.map((section) => (
-                  <section key={section.subindicator_code} className="rounded-xl border border-clinic-border bg-white/70 p-4">
+                  <section
+                    key={section.subindicator_code}
+                    className="rounded-xl border border-clinic-border bg-white/70 p-4"
+                  >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-clinic-muted">{section.subindicator_code}</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-clinic-muted">
+                          {section.subindicator_code}
+                        </p>
                         <h3 className="mt-1 text-lg font-bold text-clinic-ink">{section.subindicator_name}</h3>
                       </div>
                       <StatusPill estado={section.complete ? 'cumple' : 'no_cumple'} />
@@ -455,28 +292,49 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
                   const label = componentLabels[vacuna] ?? vacuna;
                   const isHemoglobin = isMc02 && vacuna === 'hemoglobina';
                   const isIron = isMc02 && vacuna.startsWith('hierro_');
-                  const registeredDoseCount = data.dosis_registradas ?? data.dosis?.filter((dose) => dose.registrada).length ?? 0;
+                  const registeredDoseCount =
+                    data.dosis_registradas ?? data.dosis?.filter((dose) => dose.registrada).length ?? 0;
                   const hasIronDelivery = isIron && Boolean(data.fecha);
                   const deliveryCount = data.entregas?.length || (hasIronDelivery ? 1 : 0);
                   const hasAnemiaAlert = Boolean(result.clinical_alerts?.length);
-                  const fallbackIronType = vacuna === 'hierro_menor_6m'
-                    ? 'Preventiva 4 meses'
-                    : hasAnemiaAlert ? 'Tratamiento de anemia' : 'Preventiva 6 a 11 meses';
-                  const ironType = data.entregas?.[0]?.tipo || data.tipo_atencion || (hasIronDelivery ? fallbackIronType : null);
+                  const fallbackIronType =
+                    vacuna === 'hierro_menor_6m'
+                      ? 'Preventiva 4 meses'
+                      : hasAnemiaAlert
+                      ? 'Tratamiento de anemia'
+                      : 'Preventiva 6 a 11 meses';
+                  const ironType =
+                    data.entregas?.[0]?.tipo || data.tipo_atencion || (hasIronDelivery ? fallbackIronType : null);
                   const displayCode = data.codigo && data.codigo !== label ? data.codigo : '-';
                   return (
-                    <div key={vacuna} className="rounded-xl border border-clinic-violet/10 bg-white/70 p-4 transition hover:-translate-y-0.5 hover:shadow-soft">
+                    <div
+                      key={vacuna}
+                      className="rounded-xl border border-clinic-violet/10 bg-white/70 p-4 transition hover:-translate-y-0.5 hover:shadow-soft"
+                    >
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="font-bold text-clinic-ink">{label}</p>
                           <p className="text-sm text-clinic-muted">Codigo: {displayCode}</p>
-                          {!isHemoglobin && !isIron && <p className="text-sm text-clinic-muted">Dosis registradas: {registeredDoseCount}</p>}
+                          {!isHemoglobin && !isIron && (
+                            <p className="text-sm text-clinic-muted">Dosis registradas: {registeredDoseCount}</p>
+                          )}
                           {isIron && <p className="text-sm text-clinic-muted">Entregas registradas: {deliveryCount}</p>}
                           <p className="text-sm text-clinic-muted">
-                            {isHemoglobin ? 'Fecha dosaje' : isIron ? 'Fecha entrega' : 'Ultima fecha'}: {formatDate(data.fecha)}
+                            {isHemoglobin ? 'Fecha dosaje' : isIron ? 'Fecha entrega' : 'Ultima fecha'}:{' '}
+                            {formatDate(data.fecha)}
                           </p>
-                          {isHemoglobin && <p className="text-sm text-clinic-muted">Edad al dosaje: {data.edad_atencion_dias != null ? `${data.edad_atencion_dias} dias` : '-'}</p>}
-                          {isIron && <p className="text-sm text-clinic-muted">Edad a la entrega: {data.edad_atencion_dias != null ? `${data.edad_atencion_dias} dias` : '-'}</p>}
+                          {isHemoglobin && (
+                            <p className="text-sm text-clinic-muted">
+                              Edad al dosaje:{' '}
+                              {data.edad_atencion_dias != null ? `${data.edad_atencion_dias} dias` : '-'}
+                            </p>
+                          )}
+                          {isIron && (
+                            <p className="text-sm text-clinic-muted">
+                              Edad a la entrega:{' '}
+                              {data.edad_atencion_dias != null ? `${data.edad_atencion_dias} dias` : '-'}
+                            </p>
+                          )}
                           {isIron && <p className="text-sm text-clinic-muted">Tipo: {ironType || '-'}</p>}
                           {isIron && <p className="text-sm text-clinic-muted">Resultado Excel: {data.resultado || '-'}</p>}
                           <p className="text-sm text-clinic-muted">EESS atencion: {data.establecimiento_atencion || '-'}</p>
@@ -484,7 +342,13 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
                         </div>
                         <StatusPill estado={data.estado} />
                       </div>
-                      {isHemoglobin ? <HemoglobinDetails data={data} /> : isIron ? <IronDetails data={data} /> : <DoseDetails doses={data.dosis} />}
+                      {isHemoglobin ? (
+                        <HemoglobinDetails data={data} />
+                      ) : isIron ? (
+                        <IronDetails data={data} />
+                      ) : (
+                        <DoseDetails doses={data.dosis} />
+                      )}
                       <DetailMessage item={data} />
                     </div>
                   );
@@ -498,7 +362,10 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
               <SectionTitle icon={ClipboardList} title="Controles CRED" />
               <div className="mt-4 grid gap-4 xl:grid-cols-3">
                 {result.cred_controls.map((cred) => (
-                  <div key={cred.numero} className="rounded-xl border border-clinic-violet/10 bg-white/70 p-4 transition hover:-translate-y-0.5 hover:shadow-soft">
+                  <div
+                    key={cred.numero}
+                    className="rounded-xl border border-clinic-violet/10 bg-white/70 p-4 transition hover:-translate-y-0.5 hover:shadow-soft"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-bold text-clinic-ink">CRED {cred.numero}</p>
@@ -528,9 +395,17 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
             </article>
           )}
 
-          <article className={`rounded-xl border p-5 ${result.paquete_completo ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
-            <h3 className={`inline-flex items-center gap-2 text-lg font-bold ${result.paquete_completo ? 'text-emerald-700' : 'text-red-700'}`}>
-              {result.paquete_completo ? <ShieldCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+          <article
+            className={`rounded-xl border p-5 ${
+              result.paquete_completo ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'
+            }`}
+          >
+            <h3
+              className={`inline-flex items-center gap-2 text-lg font-bold ${
+                result.paquete_completo ? 'text-emerald-700' : 'text-red-700'
+              }`}
+            >
+              {result.paquete_completo ? <ShieldCheck className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
               Estado del paquete
             </h3>
             <p className={`mt-2 text-sm font-semibold ${result.paquete_completo ? 'text-emerald-700' : 'text-red-700'}`}>

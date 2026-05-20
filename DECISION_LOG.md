@@ -696,3 +696,15 @@ npm run dev
 - `AUTH_USERS_JSON` queda como semilla inicial; si no hay usuarios, se crea `admin / admin123` como cuenta temporal.
 - Se agrego la vista frontend **Usuarios** para crear cuentas, asignar rol, activar/desactivar y renovar contrasenas.
 - Validacion local: migracion Alembic a `0003`, seed de usuarios/roles, login `admin / cambiar-admin`, endpoint `/api/security/users`, pruebas unitarias de seguridad y `npm run build` OK.
+### Refactorización del Frontend y Diseño del Sistema
+- Se aplicó la guía de habilidades de React (.agents/skills) para resolver la complejidad de los componentes monolíticos del frontend (`SearchDNI.jsx` y `Dashboard.jsx`).
+- **Desacoplamiento de Lógica (Hooks)**:
+  - Se crearon los hooks personalizados [useDniSearch.js](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/hooks/useDniSearch.js) y [useDashboardData.js](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/hooks/useDashboardData.js) para separar la lógica de negocio, llamadas de API (axios) y estados del rendering.
+- **Modularización de Presentación (Componentes)**:
+  - Se extrajeron a la carpeta `src/components/` los componentes funcionales: [StatusPill.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/StatusPill.jsx), [DoseDetails.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/DoseDetails.jsx), [HemoglobinDetails.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/HemoglobinDetails.jsx), [IronDetails.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/IronDetails.jsx), [PeriodBadge.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/PeriodBadge.jsx) y [SemaphoreBadge.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/SemaphoreBadge.jsx).
+- **Simplificación de Vistas**:
+  - [SearchDNI.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/SearchDNI.jsx) y [Dashboard.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/Dashboard.jsx) ahora consumen los nuevos hooks y delegan la renderización a los componentes modulares específicos.
+- **Validación**:
+  - Compilación de producción con Vite (`npm run build`) ejecutada con éxito y sin advertencias/errores.
+  - Ejecución de pruebas unitarias del backend exitosa para asegurar la no regresión.
+
