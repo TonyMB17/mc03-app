@@ -116,7 +116,7 @@ function App() {
     handleIndicatorChange('si02');
     setSelectedSi02Subindicator(nextSubindicator);
     setSi02AccordionOpen(true);
-    if (permissions.includes('dashboard')) {
+    if (safeActiveView !== 'search' && permissions.includes('dashboard')) {
       setActiveView('dashboard');
     }
   };
@@ -357,7 +357,14 @@ function App() {
             title={currentView.title}
             description={currentView.description}
           />
-          {safeActiveView === 'search' && <SearchDNI selectedProvince={selectedProvince} selectedIndicator={selectedIndicator} />}
+          {safeActiveView === 'search' && (
+            <SearchDNI
+              selectedProvince={selectedProvince}
+              selectedIndicator={selectedIndicator}
+              selectedSi02Subindicator={selectedSi02Subindicator}
+              onSi02SubindicatorChange={setSelectedSi02Subindicator}
+            />
+          )}
           {safeActiveView === 'dashboard' && (
             <Dashboard
               selectedProvince={selectedProvince}

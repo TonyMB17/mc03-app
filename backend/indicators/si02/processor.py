@@ -123,12 +123,20 @@ def build_report_summary(data, cutoff_date=None, province: str | None = DEFAULT_
     return build_package_summary(data, cutoff_date, province, target_coverage)
 
 
-def search_by_dni(package_data: dict[str, pd.DataFrame], dni: str, reference_date=None, province: str | None = DEFAULT_PROVINCE) -> dict[str, Any] | None:
+def search_by_dni(
+    package_data: dict[str, pd.DataFrame],
+    dni: str,
+    reference_date=None,
+    province: str | None = DEFAULT_PROVINCE,
+    subindicator: str | None = None,
+) -> dict[str, Any] | None:
     query = str(dni).strip()
     results = []
     personal = None
     flat_components = {}
     for code, df in package_data.items():
+        if subindicator and code != subindicator:
+            continue
         filtered = filter_data(df, code, province)
         matches = filtered[
             (filtered.get("afi_dni", pd.Series(dtype=object)).astype(str).str.strip() == query)

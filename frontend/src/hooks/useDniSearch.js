@@ -1,11 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import api from '../api/client';
 
-export function useDniSearch(selectedProvince, selectedIndicator) {
+export function useDniSearch(selectedProvince, selectedIndicator, selectedSubindicator = 'all') {
   const [dni, setDni] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setResult(null);
+    setError(null);
+  }, [selectedProvince, selectedIndicator, selectedSubindicator]);
 
   const search = useCallback(
     async (searchDni) => {
@@ -21,6 +26,9 @@ export function useDniSearch(selectedProvince, selectedIndicator) {
 
       try {
         const params = new URLSearchParams({ province: selectedProvince, indicator: selectedIndicator });
+        if (selectedIndicator === 'si02' && selectedSubindicator && selectedSubindicator !== 'all') {
+          params.set('subindicator', selectedSubindicator);
+        }
         const response = await api.get(`/api/search/dni/${targetDni}?${params.toString()}`);
         setResult(response.data);
       } catch (err) {
@@ -29,7 +37,7 @@ export function useDniSearch(selectedProvince, selectedIndicator) {
         setLoading(false);
       }
     },
-    [dni, selectedProvince, selectedIndicator],
+    [dni, selectedProvince, selectedIndicator, selectedSubindicator],
   );
 
   const clear = useCallback(() => {

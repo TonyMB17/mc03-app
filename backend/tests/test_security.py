@@ -6,6 +6,7 @@ from backend.security import (
     ROLE_ADMIN,
     ROLE_CLINICAL,
     AuthenticatedUser,
+    bootstrap_users_from_env,
     create_access_token,
     development_user,
     hash_password,
@@ -48,6 +49,22 @@ class SecurityHelpersTest(unittest.TestCase):
 
         self.assertEqual(user.role, ROLE_ADMIN)
         self.assertIn("users_admin", user.permissions)
+
+    def test_bootstrap_users_from_env_preserves_sync_fields(self):
+        env = {
+            "AUTH_USERS_JSON": (
+                '{"admin":{"password":"nueva-clave","role":"admin",'
+                '"display_name":"Admin Produccion","is_active":true,'
+                '"must_change_password":false}}'
+            )
+        }
+
+        with patch.dict(os.environ, env, clear=True):
+            users = bootstrap_users_from_env()
+
+        self.assertEqual(users["admin"]["display_name"], "Admin Produccion")
+        self.assertEqual(users["admin"]["role"], ROLE_ADMIN)
+        self.assertFalse(users["admin"]["must_change_password"])
 
 
 if __name__ == "__main__":

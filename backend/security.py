@@ -320,19 +320,38 @@ def ensure_bootstrap_users(db: Session, roles: dict[str, AppRole]) -> None:
 
     for username, data in users.items():
         username = normalize_username(username)
-        if get_user_by_username(db, username) is not None:
-            continue
         role_code = str(data.get("role") or ROLE_CLINICAL).lower()
         role = roles.get(role_code) or roles[ROLE_CLINICAL]
+        existing_user = get_user_by_username(db, username)
+        if existing_user is not None:
+            existing_user.display_name = str(data.get("display_name") or username)
+            existing_user.password_hash = hash_password(str(data["password"]))
+            existing_user.is_active = bool(data.get("is_active", True))
+            existing_user.must_change_password = bool(data.get("must_change_password", False))
+            sync_user_role(db, existing_user, role)
+            continue
+
         user = AppUser(
             username=username,
             display_name=str(data.get("display_name") or username),
             password_hash=hash_password(str(data["password"])),
-            is_active=True,
+            is_active=bool(data.get("is_active", True)),
             must_change_password=bool(data.get("must_change_password", False)),
         )
         db.add(user)
         db.flush()
+        db.add(AppUserRole(user_id=user.id, role_id=role.id))
+
+
+def sync_user_role(db: Session, user: AppUser, role: AppRole) -> None:
+    current_roles = db.execute(select(AppUserRole).where(AppUserRole.user_id == user.id)).scalars().all()
+    has_target_role = False
+    for current_role in current_roles:
+        if current_role.role_id == role.id:
+            has_target_role = True
+            continue
+        db.delete(current_role)
+    if not has_target_role:
         db.add(AppUserRole(user_id=user.id, role_id=role.id))
 
 
@@ -360,6 +379,8 @@ def bootstrap_users_from_env() -> dict[str, dict[str, Any]]:
             "password": password,
             "role": role,
             "display_name": str(user_data.get("display_name") or username),
+            "is_active": bool(user_data.get("is_active", True)),
+            "must_change_password": bool(user_data.get("must_change_password", False)),
         }
     return users
 

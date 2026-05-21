@@ -479,7 +479,12 @@ def search_result_from_records(records: list[IndicatorRecord], component_results
     }
 
 
-def search_active_by_dni(db: Session, dni: str, province: str | None = DEFAULT_PROVINCE) -> dict[str, Any] | None:
+def search_active_by_dni(
+    db: Session,
+    dni: str,
+    province: str | None = DEFAULT_PROVINCE,
+    subindicator: str | None = None,
+) -> dict[str, Any] | None:
     upload_id = active_upload_id(db)
     if upload_id is None:
         return None
@@ -494,6 +499,8 @@ def search_active_by_dni(db: Session, dni: str, province: str | None = DEFAULT_P
     )
     if province and province != ALL_PROVINCES_TOKEN:
         statement = statement.where(IndicatorRecord.province.ilike(province.strip()))
+    if subindicator:
+        statement = statement.where(IndicatorRecord.raw_selected_data["subindicator_code"].as_string() == subindicator)
 
     records = db.execute(statement).scalars().all()
     if not records:

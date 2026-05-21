@@ -360,7 +360,7 @@ def _persist_active_upload(definition, data_bundle: dict, filepath: Path, metada
         )
 
 
-def _search_active_upload_by_dni(definition, dni: str, province: str | None):
+def _search_active_upload_by_dni(definition, dni: str, province: str | None, subindicator: str | None = None):
     searcher = _indicator_db_searcher(definition)
     active_checker = _indicator_active_upload_checker(definition)
     if searcher is None or active_checker is None:
@@ -378,6 +378,8 @@ def _search_active_upload_by_dni(definition, dni: str, province: str | None):
         with SessionLocal() as db:
             if active_checker(db) is None:
                 return None, False
+            if subindicator:
+                return searcher(db, dni, province, subindicator), True
             return searcher(db, dni, province), True
     except SQLAlchemyError:
         return None, False
@@ -1019,11 +1021,13 @@ def api_search_dni(
     dni: str,
     province: str = Query("ABANCAY"),
     indicator: str = Query("mc03"),
+    subindicator: str | None = Query(None),
     _user=Depends(require_roles(ROLE_CLINICAL, ROLE_SUPERVISOR, ROLE_ADMIN)),
 ):
     definition = _indicator_definition(indicator)
     indicator = definition.code
-    db_result, searched_database = _search_active_upload_by_dni(definition, dni, province)
+    active_subindicator = subindicator if indicator == "si02" else None
+    db_result, searched_database = _search_active_upload_by_dni(definition, dni, province, active_subindicator)
     if searched_database:
         if db_result is None:
             raise HTTPException(status_code=404, detail="DNI no encontrado en la carga activa")
@@ -1033,7 +1037,10 @@ def api_search_dni(
     if data is None:
         raise HTTPException(status_code=404, detail="No hay datos cargados en el servidor")
 
-    result = definition.search_by_dni(data, dni, _active_cutoff_date(indicator), province)
+    if active_subindicator:
+        result = definition.search_by_dni(data, dni, _active_cutoff_date(indicator), province, active_subindicator)
+    else:
+        result = definition.search_by_dni(data, dni, _active_cutoff_date(indicator), province)
     if result is None:
         raise HTTPException(status_code=404, detail=f"No se encontro registro para DNI: {dni}")
 

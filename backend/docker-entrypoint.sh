@@ -28,4 +28,6 @@ cd /app/backend
 python -m alembic -c alembic.ini upgrade head
 
 cd /app
+python -m backend.sync_security
+
 exec "$@"

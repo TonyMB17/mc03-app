@@ -22,6 +22,7 @@ import HemoglobinDetails from './components/HemoglobinDetails';
 import IronDetails from './components/IronDetails';
 import SectionPanel from './components/SectionPanel';
 import { UsiBadge, UsiCard, UsiTabs } from './components/usi';
+import indicators from './indicators/registry';
 import { formatShortDate } from './utils/dates';
 
 const componentLabels = {
@@ -245,27 +246,45 @@ function SI02ComponentCard({ data }) {
   );
 }
 
-function SearchDNI({ selectedProvince, selectedIndicator }) {
+function SearchDNI({
+  selectedProvince,
+  selectedIndicator,
+  selectedSi02Subindicator = 'all',
+  onSi02SubindicatorChange,
+}) {
   const [activeClinicalTab, setActiveClinicalTab] = useState('components');
   const { dni, setDni, result, error, loading, search } = useDniSearch(
     selectedProvince,
     selectedIndicator,
+    selectedSi02Subindicator,
   );
 
   const isMc02 = selectedIndicator === 'mc02';
   const isSi02 = selectedIndicator === 'si02';
+  const si02Subindicators = indicators.si02.subindicators ?? [];
+  const selectedSubindicatorInfo = si02Subindicators.find((item) => item.code === selectedSi02Subindicator);
   const searchLabel = isMc02 || isSi02 ? 'DNI o CNV del niño' : 'DNI del recien nacido';
-  const packageTitle = isMc02 ? 'Paquete integrado MC-02' : isSi02 ? 'Subindicadores SI-02' : 'Componentes del paquete';
+  const packageTitle = isMc02
+    ? 'Paquete integrado MC-02'
+    : isSi02 && selectedSubindicatorInfo
+    ? `${selectedSubindicatorInfo.officialCode} ${selectedSubindicatorInfo.title}`
+    : isSi02
+    ? 'Subindicadores SI-02'
+    : 'Componentes del paquete';
   const packageIcon = isMc02 ? PackageCheck : Syringe;
   const finalCompleteText = isMc02
     ? 'Paquete integrado completo'
     : isSi02
-    ? 'Todos los subindicadores encontrados cumplen'
+    ? selectedSubindicatorInfo
+      ? 'El subindicador consultado cumple'
+      : 'Todos los subindicadores encontrados cumplen'
     : 'Paquete completo';
   const finalIncompleteText = isMc02
     ? 'Paquete integrado incompleto, requiere seguimiento'
     : isSi02
-    ? 'Tiene subindicadores con observaciones'
+    ? selectedSubindicatorInfo
+      ? 'El subindicador consultado requiere seguimiento'
+      : 'Tiene subindicadores con observaciones'
     : 'Paquete incompleto, requiere intervencion';
   const packageTabValue = isSi02 ? 'subindicators' : 'components';
   const clinicalTabs = result
@@ -321,37 +340,77 @@ function SearchDNI({ selectedProvince, selectedIndicator }) {
     <section className="space-y-5">
       <SectionPanel className="p-5 lg:p-6">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
-          <form onSubmit={handleSearchSubmit} className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div>
-              <label htmlFor="dni" className="text-sm font-bold uppercase tracking-[0.16em] text-clinic-muted">
-                {searchLabel}
-              </label>
-              <div className="relative mt-2">
-                <IdCard className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-clinic-teal" />
-                <input
-                  id="dni"
-                  type="text"
-                  value={dni}
-                  onChange={(event) => setDni(event.target.value)}
-                  placeholder="Ej: 12345678"
-                  className="field pl-12"
-                />
+          <div className="space-y-4">
+            {isSi02 && (
+              <div className="rounded-xl border border-base-300 bg-base-200 p-2">
+                <p className="px-2 pb-2 text-xs font-bold uppercase tracking-[0.16em] text-clinic-muted">
+                  Buscar en subindicador
+                </p>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  <button
+                    type="button"
+                    onClick={() => onSi02SubindicatorChange?.('all')}
+                    className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-bold transition ${
+                      selectedSi02Subindicator === 'all'
+                        ? 'border-primary bg-primary text-primary-content shadow-sm'
+                        : 'border-base-300 bg-base-100 text-clinic-muted hover:border-secondary hover:text-primary'
+                    }`}
+                  >
+                    Global SI-02
+                  </button>
+                  {si02Subindicators.map((subindicator) => (
+                    <button
+                      key={subindicator.code}
+                      type="button"
+                      onClick={() => onSi02SubindicatorChange?.(subindicator.code)}
+                      className={`shrink-0 rounded-lg border px-3 py-2 text-left transition ${
+                        selectedSi02Subindicator === subindicator.code
+                          ? 'border-primary bg-primary text-primary-content shadow-sm'
+                          : 'border-base-300 bg-base-100 text-clinic-muted hover:border-secondary hover:text-primary'
+                      }`}
+                    >
+                      <span className="block text-xs font-black">{subindicator.officialCode}</span>
+                      <span className="mt-0.5 block max-w-40 truncate text-[0.68rem] font-semibold">{subindicator.title}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="icon-button btn-primary px-6 py-3 disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
-              {loading ? 'Buscando...' : 'Buscar'}
-            </button>
-          </form>
+            )}
+
+            <form onSubmit={handleSearchSubmit} className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div>
+                <label htmlFor="dni" className="text-sm font-bold uppercase tracking-[0.16em] text-clinic-muted">
+                  {searchLabel}
+                </label>
+                <div className="relative mt-2">
+                  <IdCard className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-clinic-teal" />
+                  <input
+                    id="dni"
+                    type="text"
+                    value={dni}
+                    onChange={(event) => setDni(event.target.value)}
+                    placeholder="Ej: 12345678"
+                    className="field pl-12"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="icon-button btn-primary px-6 py-3 disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
+                {loading ? 'Buscando...' : 'Buscar'}
+              </button>
+            </form>
+          </div>
 
           <div className="rounded-lg border border-clinic-line bg-clinic-sky/70 p-4">
             <p className="text-xs font-bold uppercase text-clinic-muted">Consulta nominal</p>
             <p className="mt-2 text-sm leading-6 text-clinic-muted">
-              Busca por identificador para revisar paquete, ventanas normativas, atenciones registradas y alertas.
+              {isSi02 && selectedSubindicatorInfo
+                ? `Consulta solo ${selectedSubindicatorInfo.officialCode} para revisar sus atenciones y observaciones.`
+                : 'Busca por identificador para revisar paquete, ventanas normativas, atenciones registradas y alertas.'}
             </p>
           </div>
         </div>
