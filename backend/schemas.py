@@ -30,6 +30,49 @@ class LoginResponse(BaseModel):
     user: AuthUserResponse
 
 
+class UserAdminItem(BaseModel):
+    username: str
+    display_name: str
+    role: str
+    roles: List[str] = []
+    is_active: bool = True
+    must_change_password: bool = False
+    last_login_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class UserCreateRequest(BaseModel):
+    username: str
+    password: str
+    display_name: str
+    role: str
+    is_active: bool = True
+
+
+class UserUpdateRequest(BaseModel):
+    password: str | None = None
+    display_name: str | None = None
+    role: str | None = None
+    is_active: bool | None = None
+
+
+class UsersResponse(BaseModel):
+    users: List[UserAdminItem]
+
+
+class RoleItem(BaseModel):
+    code: str
+    label: str
+    description: str | None = None
+    permissions: List[str] = []
+    is_system: bool = False
+
+
+class RolesResponse(BaseModel):
+    roles: List[RoleItem]
+
+
 class MonthlyCompliance(BaseModel):
     month: str
     year: int

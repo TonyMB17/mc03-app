@@ -687,3 +687,187 @@ npm run dev
 - `Dashboard.jsx` muestra un panel de compromiso SI-02 con regla aplicada y avance por subindicador.
 - Se corrigio la descripcion obsoleta de `backend/indicators/si02/__init__.py`.
 - Validacion tecnica: `python -m py_compile` sobre SI-02, schemas y `backend/main.py` OK; `npm run build` OK; `python -m unittest backend.indicators.si02.tests.test_si02_commitment backend.indicators.si02.tests.test_si02_excel_contract backend.indicators.si02.tests.test_si02_rules backend.indicators.si02.tests.test_si02_storage backend.indicators.mc02.tests.test_mc02_rules` OK con 34 pruebas y 3 omitidas por no encontrar Excel reales en `E:/Downloads` o pruebas protegidas de BD.
+
+### Seguridad - usuarios, roles y permisos
+- Se decidio implementar una primera capa DB-backed sobre la arquitectura actual antes de integrar un paquete mas invasivo como `fastapi-users`.
+- Se agregaron tablas PostgreSQL para usuarios, roles, permisos y relaciones mediante la migracion `0003_users_roles_permissions`.
+- Las contrasenas usan hash Argon2 con `pwdlib[argon2]` y los tokens usan JWT firmado con `PyJWT`.
+- Roles iniciales: `clinical`, `supervisor` y `admin`; el permiso nuevo `users_admin` habilita la administracion de usuarios.
+- `AUTH_USERS_JSON` queda como semilla inicial; si no hay usuarios, se crea `admin / admin123` como cuenta temporal.
+- Se agrego la vista frontend **Usuarios** para crear cuentas, asignar rol, activar/desactivar y renovar contrasenas.
+- Validacion local: migracion Alembic a `0003`, seed de usuarios/roles, login `admin / cambiar-admin`, endpoint `/api/security/users`, pruebas unitarias de seguridad y `npm run build` OK.
+### Refactorización del Frontend y Diseño del Sistema
+- Se aplicó la guía de habilidades de React (.agents/skills) para resolver la complejidad de los componentes monolíticos del frontend (`SearchDNI.jsx` y `Dashboard.jsx`).
+- **Desacoplamiento de Lógica (Hooks)**:
+  - Se crearon los hooks personalizados [useDniSearch.js](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/hooks/useDniSearch.js) y [useDashboardData.js](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/hooks/useDashboardData.js) para separar la lógica de negocio, llamadas de API (axios) y estados del rendering.
+- **Modularización de Presentación (Componentes)**:
+  - Se extrajeron a la carpeta `src/components/` los componentes funcionales: [StatusPill.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/StatusPill.jsx), [DoseDetails.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/DoseDetails.jsx), [HemoglobinDetails.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/HemoglobinDetails.jsx), [IronDetails.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/IronDetails.jsx), [PeriodBadge.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/PeriodBadge.jsx) y [SemaphoreBadge.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/components/SemaphoreBadge.jsx).
+- **Simplificación de Vistas**:
+  - [SearchDNI.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/SearchDNI.jsx) y [Dashboard.jsx](file:///C:/Users/USUARIO/.gemini/antigravity/worktrees/mc03-app/improve-system-design-agents/frontend/src/Dashboard.jsx) ahora consumen los nuevos hooks y delegan la renderización a los componentes modulares específicos.
+- **Validación**:
+  - Compilación de producción con Vite (`npm run build`) ejecutada con éxito y sin advertencias/errores.
+  - Ejecución de pruebas unitarias del backend exitosa para asegurar la no regresión.
+
+
+### Plan de mejora visual de plataforma de salud
+- Se creo `docs/README_DISENO_PLATAFORMA_SALUD.md` como plan rector para redisenar la plataforma con foco clinico-operativo.
+- El plan prioriza claridad clinica, confianza institucional, densidad util, accesibilidad, consistencia multiindicador y seguridad visible.
+- Se inicio la fase 1 del plan: sistema visual base.
+- `frontend/tailwind.config.js` ahora define una paleta semantica mas sobria para salud: neutros, teal sanitario, azul/indigo institucional y acentos suaves.
+- `frontend/src/index.css` ahora centraliza tokens CSS para superficies, bordes, sombras, radios, estados y clases base como `app-shell`, `platform-header`, `section-panel`, `muted-panel`, estados y `data-table`.
+- `frontend/src/App.jsx` usa la nueva base `app-shell` y `platform-header`, retirando fondos radiales decorativos para una interfaz mas profesional.
+- Validacion tecnica: `npm run build` OK.
+
+### Fase 2 diseno - Layout general de plataforma
+- Se reorganizo `frontend/src/App.jsx` para que el encabezado funcione como barra operativa de plataforma en lugar de hero grande.
+- La cabecera ahora separa identidad institucional, indicador activo, contexto de filtro/meta/usuario y navegacion por permisos.
+- Se agrego `ContextChip` para mostrar contexto operativo de forma compacta y consistente.
+- `frontend/src/components/IndicatorSelector.jsx` ahora usa el estilo compartido `context-chip`.
+- El encabezado de cada vista muestra titulo, descripcion y contexto activo `indicador / provincia`, dejando la cabecera principal mas estable entre vistas.
+- Se actualizo `docs/README_DISENO_PLATAFORMA_SALUD.md` para marcar fase 1 aplicada y fase 2 iniciada.
+
+### Ajuste de navegacion - Header fijo y sidebar
+- Se redisenio `frontend/src/App.jsx` para usar un header fijo superior con identidad institucional, indicador activo, filtro, meta y usuario.
+- La navegacion principal por permisos se movio a un sidebar lateral con estado activo, indicador seleccionado y resumen de sesion.
+- `frontend/src/components/IndicatorSelector.jsx` ahora usa `topbar-chip`, adecuado para el nuevo header claro.
+- `frontend/src/index.css` agrega `topbar-chip` como patron visual para controles compactos del header.
+- `docs/README_DISENO_PLATAFORMA_SALUD.md` se actualizo para reflejar que la fase 2 ahora contempla header fijo y sidebar.
+- Validacion tecnica: `npm run build` OK.
+
+### Ajuste de sidebar - Lista de indicadores y acordeon SI-02
+- El selector desplegable de indicadores se retiro del header y se reemplazo por una lista de indicadores dentro del sidebar.
+- SI-02 ahora muestra un acordeon en el sidebar con vista global y subindicadores `SI-02.01`, `SI-02.02`, `SI-02.03` y `SI-02.04`.
+- Al seleccionar un subindicador SI-02 desde el sidebar, la app cambia a SI-02, abre el dashboard si el rol tiene permiso y sincroniza la vista del dashboard con el subindicador elegido.
+- `useDashboardData` ahora acepta una seleccion externa inicial/controlada de subindicador para mantener sincronizados sidebar y dashboard.
+- `frontend/src/components/IndicatorSelector.jsx` se elimino porque el selector anterior quedo reemplazado por la lista del sidebar.
+- Validacion tecnica: `npm run build` OK.
+
+### Ajuste de sidebar - Drawer fijo minimizable
+- El sidebar se convirtio en un drawer fijo pegado a la izquierda, con altura completa y borde derecho.
+- Se agrego control para minimizar/expandir el drawer usando iconos `PanelLeftClose` y `PanelLeftOpen`.
+- El contenido del drawer usa `overflow-y-auto` para soportar mas indicadores, modulos o subcomponentes sin romper la pantalla.
+- El header fijo y el contenido principal ajustan su desplazamiento horizontal segun el ancho del drawer expandido o minimizado.
+- La sesion, indicadores, acordeon SI-02 y navegacion por modulos se mantienen dentro del drawer.
+- Validacion tecnica: `npm run build` OK.
+
+### Ajuste de navegacion - Modulos accesibles en header
+- La seccion de modulos principales se retiro del scroll del drawer para evitar que quede oculta cuando aumenten indicadores o subcomponentes.
+- Se agrego una barra horizontal fija de modulos dentro del header superior usando tabs con icono y estado activo.
+- El drawer queda enfocado en seleccion de indicadores, acordeon SI-02 y sesion; los modulos permanecen siempre accesibles arriba.
+- Se ajusto el espaciado superior del contenido para compensar la nueva segunda fila fija del header.
+- Se retiro `NavButton` de `App.jsx` porque dejo de usarse tras mover los modulos al header.
+
+### Fase 3 diseno - Componentes compartidos iniciales
+- Se inicio la extraccion de componentes compartidos para reducir la complejidad visual dentro de `frontend/src/App.jsx`.
+- Se agregaron `frontend/src/components/PageHeader.jsx`, `TopbarChip.jsx`, `ModuleTab.jsx` e `IndicatorNavItem.jsx`.
+- `App.jsx` ahora consume esos componentes para el header fijo, barra de modulos, lista de indicadores y encabezado de vista.
+- Se retiro la clase CSS obsoleta `context-chip` porque el patron vigente es `topbar-chip`.
+- Se actualizo `docs/README_DISENO_PLATAFORMA_SALUD.md` con los componentes ya extraidos.
+
+### Fase 4 diseno - Dashboard operativo
+- Se agrego `frontend/src/components/SectionPanel.jsx` para unificar paneles de seccion.
+- `frontend/src/Dashboard.jsx` ahora prioriza un bloque superior de periodo en evaluacion con cobertura actual, numerador, denominador y brecha contra meta.
+- Se retiro el bloque duplicado de mes en evaluacion dentro del panel mensual para dejar una jerarquia mas limpia.
+- El selector de subindicadores SI-02 y el panel de compromiso ahora usan `SectionPanel`.
+- `MetricCard.jsx` se ajusto a tarjetas mas compactas y sobrias, alineadas a la nueva plataforma operativa.
+- Validacion tecnica: `npm run build` OK.
+
+### Ajuste SI-02 global en dashboard
+- La vista global de SI-02 ahora muestra solamente la seccion `Compromiso SI-02`.
+- Para SI-02 global se ocultan el bloque de periodo en evaluacion, metricas generales, tabla mensual `Compromiso global SI-02`, tabla de incumplidos y alerta final de compromiso pendiente.
+- Las tablas mensual e incumplidos quedan disponibles solo cuando se selecciona un subindicador SI-02 desde el drawer.
+- Se retiro el selector interno `Seguimiento por subindicador` del dashboard porque la navegacion de subindicadores ya vive en el drawer sidebar.
+- Se limpio codigo sin uso asociado al selector interno de subindicadores.
+
+### Ajuste SI-02 - Compromiso solo global
+- La seccion `Compromiso SI-02` ahora se muestra solo en la vista global de SI-02 y se oculta en las vistas de subindicador.
+- Se redisenio `CommitmentPanel` como panel ejecutivo: estado global lateral, regla vigente, verificacion actual destacada y tarjetas de avance por subindicador con barra de progreso.
+- Las verificaciones no vigentes se muestran como filas secundarias compactas para referencia sin competir con la verificacion actual.
+- Validacion tecnica: `npm run build` OK.
+
+### Fase 5 diseno - Busqueda nominal
+- Se redisenio `frontend/src/SearchDNI.jsx` como ficha nominal de seguimiento.
+- La busqueda ahora usa un panel operativo con ayuda contextual y mantiene la accion principal visible.
+- Se agrego `PackageStatusBanner` para mostrar el estado del paquete inmediatamente despues de una busqueda.
+- Se agrego `PersonalSummary` para agrupar identidad, nacimiento, establecimiento, provincia, microred y RENAES en una lectura nominal mas clara.
+- Las secciones de componentes, CRED y tamizaje ahora usan `SectionPanel` para alinearse al sistema visual compartido.
+- Validacion tecnica: `npm run build` OK.
+
+### Fase 6 diseno - Carga de datos
+- Se redisenio `frontend/src/DataUploadView.jsx` para reforzar el flujo administrativo seleccionar, validar y activar.
+- Se agrego `OperationalStatus` para mostrar estado operativo de carga, validacion, activacion en segundo plano y fuente actualizada.
+- Las secciones principales de fuente activa, carga y auditoria ahora usan `SectionPanel`.
+- La zona de seleccion de archivo se hizo mas clara con borde punteado y acciones de validar/activar agrupadas.
+- Se agrego `UploadStatusBadge` para normalizar estados del historial y resaltar la version activa.
+- Validacion tecnica: `npm run build` OK.
+
+### Fase 7 diseno - Usuarios y permisos
+- Se redisenio `frontend/src/pages/SecurityUsers.jsx` como panel operativo de seguridad.
+- La cabecera de seguridad ahora usa un bloque de alto contraste con resumen de cuentas activas, inactivas y permisos disponibles.
+- Los roles se presentan como tarjetas tintadas por jerarquia y los permisos quedan compactos como chips verificables.
+- El formulario de alta y la tabla de usuarios usan `SectionPanel`, estados de cuenta mas visibles y acciones sensibles diferenciadas.
+- Validacion tecnica: `npm run build` OK.
+
+### Fase 8 diseno - Configuracion
+- Se redisenio `frontend/src/ConfigView.jsx` como pantalla de parametros operativos.
+- Provincia, meta y seguros incluidos ahora aparecen como resumen superior con contraste y controles separados.
+- La meta del indicador agrega barra de progreso para comunicar el umbral del semaforo.
+- Filtro activo, semaforo, seguros y criterios de evaluacion se separan en tarjetas con tonos distintos.
+- Validacion tecnica: `npm run build` OK.
+
+### Fase 9 diseno - Contraste global
+- Se reforzo el contraste visual de la plataforma desde `frontend/src/index.css`.
+- El fondo general paso a una base clinica tintada con capas suaves en teal, azul e indigo.
+- `panel`, `section-panel`, `inner-panel`, `topbar-chip`, `muted-panel` y encabezados de tabla ahora usan fondos menos planos.
+- El header fijo superior en `frontend/src/App.jsx` usa gradiente suave para reducir la sensacion de interfaz completamente blanca.
+- `SectionPanel` ahora usa la clase `section-panel` y acepta props del elemento renderizado para cubrir formularios y secciones reutilizables.
+- Validacion tecnica: `npm run build` OK.
+
+### Ajuste de sistema visual - Guia USI y DaisyUI
+- Se adopto la guia visual de la Unidad de Salud Individual (USI) como fuente de verdad para la plataforma.
+- La paleta oficial queda integrada con azul marino `#102D52`, celeste salud `#0EA5E9`, lila Abancay `#C2A4CF`, neutros Slate y estados semanticos `#10B981`, `#F59E0B`, `#EF4444`.
+- `frontend/tailwind.config.js` ahora define tokens `usi`, `health` y mantiene aliases `clinic` para compatibilidad con componentes existentes.
+- DaisyUI usa el tema `clinic` con `primary` en navy institucional, `secondary/info` en celeste salud, `accent` en lila y estados semanticos de salud.
+- `frontend/src/index.css` sincroniza variables CSS, foco, botones, fondos y estados con la guia 60-30-10.
+- `App.jsx` y `LoginView.jsx` aplican `data-theme="clinic"` para activar el tema del sistema.
+- Componentes compartidos migraron a primitivas DaisyUI: `SectionPanel` usa `card`, `ModuleTab` usa `btn`, `TopbarChip`, `StatusPill`, `SemaphoreBadge` y `PeriodBadge` usan `badge`, y tarjetas resumen usan `stat`/`card`.
+- Se redujeron los fondos decorativos de tarjetas en `ConfigView.jsx` y `SecurityUsers.jsx`; el color queda reservado para marca, navegacion, iconos y estados.
+- Validacion tecnica: `npm run build` OK.
+
+### Inicio de redisenio USI - App shell y componentes base
+- `frontend/tailwind.config.js` ahora expone `usiTheme` como tema DaisyUI oficial y conserva `clinic` como alias compatible.
+- Se agrego `fontFamily.sans` con `Montserrat`, `Inter` y fallback del sistema.
+- Se crearon componentes base `frontend/src/components/usi/UsiCard.jsx`, `UsiBadge.jsx`, `UsiStat.jsx` y `UsiTabs.jsx`.
+- `SectionPanel` ahora delega en `UsiCard` para comenzar la migracion por composicion.
+- `App.jsx` y `LoginView.jsx` usan `data-theme="usiTheme"`.
+- El App shell inicio su migracion visual: header fijo en `primary`, chips contextuales sobre `base-100`, drawer neutro y navegacion activa con `primary`.
+- Validacion tecnica: `npm run build` OK.
+
+### Redisenio USI - Login y busqueda nominal
+- `frontend/src/LoginView.jsx` migro a estructura DaisyUI con card institucional, panel `primary`, inputs `input input-bordered`, alerta `alert-error` y boton `btn-primary`.
+- `frontend/src/SearchDNI.jsx` adopto el layout de 3 zonas de la guia USI.
+- Se reemplazo la lectura lineal del resultado por `PatientSummaryCard`: identidad, establecimiento, ubicacion, CNV/RENAES y accesos rapidos a secciones.
+- El detalle nominal ahora usa `UsiTabs` para separar componentes/subindicadores, CRED, tamizaje y alertas clinicas.
+- Las tarjetas de componentes, subindicadores, CRED y tamizaje usan superficies neutras `base-100`, bordes `base-300` y color semantico solo en badges/alertas.
+- Validacion tecnica: `npm run build` OK.
+
+### Redisenio USI - Dashboard del indicador
+- `frontend/src/Dashboard.jsx` adopto el layout clinico de 12 columnas: periodo en evaluacion, cobertura, brecha y metricas quedan en la zona izquierda; seguimiento mensual e incumplidos quedan en la zona derecha.
+- `CurrentPeriodPanel` ahora usa cabecera institucional `primary`, stats compactos, barra `progress` DaisyUI y colores semanticos solo para brecha/cumplimiento.
+- `CommitmentPanel` mantiene SI-02 global como panel ejecutivo unico, con regla vigente, verificacion actual y progreso por subindicador sin tablas adicionales.
+- Las tablas mensual e incumplidos migraron a `table table-zebra`, encabezados `base-200`, controles DaisyUI y estados consistentes con la paleta USI.
+- Validacion tecnica: `npm run build` OK.
+
+### Ajuste de densidad - Busqueda y dashboard
+- `frontend/src/SearchDNI.jsx` compacto `PatientSummaryCard` como una franja horizontal de contexto con identidad, datos clave y accesos rapidos.
+- El detalle de componentes/subindicadores dejo de compartir pantalla en dos columnas y ahora ocupa todo el ancho disponible; en pantallas amplias puede usar tres columnas internas para aprovechar mejor el espacio.
+- `frontend/src/Dashboard.jsx` compacto la evaluacion del periodo en una banda superior con cobertura, numerador, denominador y brecha.
+- La tabla de incumplidos paso a ser el primer bloque visual del dashboard y ocupa todo el ancho disponible; el avance mensual quedo como bloque secundario compacto.
+- Validacion tecnica: `npm run build` OK.
+
+### Cierre de fases USI - Carga, seguridad y configuracion
+- `frontend/src/DataUploadView.jsx` termino su migracion visual a USI/DaisyUI: tarjetas `base-*`, botones `btn`, badges semanticos, tabla `table table-zebra` e indicadores de validacion/activacion consistentes.
+- `frontend/src/pages/SecurityUsers.jsx` usa cabecera `primary`, estadisticas compactas, formulario con `input/select/checkbox`, acciones administrativas `btn` y tabla `table table-zebra`.
+- `frontend/src/ConfigView.jsx` queda como pantalla de parametros operativos con cabecera `primary`, controles DaisyUI, `progress progress-secondary` para meta y badges para seguros.
+- Se redujeron gradientes y clases ad hoc en estas vistas; los colores quedan reservados para marca, interaccion y estados de salud/seguridad.
+- Validacion tecnica: `npm run build` OK.

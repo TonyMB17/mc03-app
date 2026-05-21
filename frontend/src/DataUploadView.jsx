@@ -13,6 +13,7 @@ import {
   UploadCloud,
   XCircle,
 } from 'lucide-react';
+import SectionPanel from './components/SectionPanel';
 import indicators from './indicators/registry';
 import { formatPeruDate } from './utils/dates';
 
@@ -61,15 +62,15 @@ function PackageFileGrid({ files }) {
   if (!files?.length) return null;
 
   const styles = {
-    ok: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    missing: 'border-red-200 bg-red-50 text-red-700',
-    duplicate: 'border-amber-200 bg-amber-50 text-amber-800',
+    ok: 'border-success/25 bg-success/10 text-success',
+    missing: 'border-error/25 bg-error/10 text-error',
+    duplicate: 'border-warning/25 bg-warning/10 text-warning',
   };
 
   return (
-    <div className="rounded-lg border border-clinic-border bg-white p-3">
+    <div className="rounded-xl border border-base-300 bg-base-100 p-3">
       <p className="inline-flex items-center gap-2 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-clinic-muted">
-        <Layers3 className="h-4 w-4 text-clinic-violet" />
+        <Layers3 className="h-4 w-4 text-secondary" />
         Archivos del paquete
       </p>
       <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -80,7 +81,7 @@ function PackageFileGrid({ files }) {
                 <p className="text-sm font-bold text-clinic-ink">{formatSubindicatorCode(item.subindicator_code)}</p>
                 <p className="mt-1 truncate text-xs font-semibold">{item.filename || 'Archivo no encontrado'}</p>
               </div>
-              <span className="shrink-0 rounded-full bg-white/70 px-2.5 py-1 text-xs font-bold ring-1 ring-current">
+              <span className="badge badge-ghost h-auto shrink-0 px-2.5 py-1 text-xs font-bold">
                 {item.status === 'ok' ? 'OK' : item.status === 'duplicate' ? 'Duplicado' : 'Falta'}
               </span>
             </div>
@@ -99,8 +100,8 @@ function PackageFileGrid({ files }) {
 
 function InfoCell({ label, value, icon: Icon }) {
   return (
-    <div className="flex min-h-[4.75rem] items-center gap-3 rounded-lg border border-clinic-border bg-white p-3 shadow-sm">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-clinic-mint text-clinic-teal ring-1 ring-teal-100">
+    <div className="flex min-h-[4.25rem] items-center gap-3 rounded-xl border border-base-300 bg-base-100 p-3 shadow-sm">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary/10 text-secondary ring-1 ring-secondary/20">
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">
@@ -113,13 +114,13 @@ function InfoCell({ label, value, icon: Icon }) {
 
 function SectionTitleCard({ eyebrow, title, description, icon: Icon, action }) {
   return (
-    <div className="flex h-full items-start gap-3 rounded-xl border border-clinic-border bg-white p-4 shadow-sm">
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-clinic-teal text-white">
+    <div className="flex h-full items-start gap-3 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-content">
         <Icon className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
-        {eyebrow && <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-teal">{eyebrow}</p>}
-        <h2 className="mt-1 break-words text-lg font-bold text-clinic-ink">{title}</h2>
+        {eyebrow && <p className="text-xs font-bold uppercase tracking-[0.16em] text-secondary">{eyebrow}</p>}
+        <h2 className="mt-1 break-words text-lg font-black text-primary">{title}</h2>
         {description && <p className="mt-1 text-sm leading-5 text-clinic-muted">{description}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
@@ -127,17 +128,64 @@ function SectionTitleCard({ eyebrow, title, description, icon: Icon, action }) {
   );
 }
 
+function OperationalStatus({ status, preview, currentData }) {
+  const states = {
+    idle: {
+      label: 'Listo para cargar',
+      description: 'Selecciona un archivo para iniciar la validacion.',
+      className: 'border-info/25 bg-info/10 text-primary',
+      icon: UploadCloud,
+    },
+    uploading: {
+      label: 'Validando archivo',
+      description: 'Revisando estructura, columnas y corte del Excel.',
+      className: 'border-warning/25 bg-warning/10 text-warning',
+      icon: Loader2,
+    },
+    previewed: {
+      label: preview?.valid ? 'Validacion correcta' : 'Validacion con observaciones',
+      description: preview?.valid ? 'El archivo esta listo para activarse.' : 'Corrige los errores antes de activar.',
+      className: preview?.valid ? 'border-success/25 bg-success/10 text-success' : 'border-error/25 bg-error/10 text-error',
+      icon: preview?.valid ? CheckCircle2 : XCircle,
+    },
+    activating: {
+      label: 'Activando datos',
+      description: currentData?.message || 'Procesando en segundo plano. La version anterior sigue disponible.',
+      className: 'border-warning/25 bg-warning/10 text-warning',
+      icon: Loader2,
+    },
+    activated: {
+      label: 'Fuente actualizada',
+      description: 'El sistema ya usa la informacion activada.',
+      className: 'border-success/25 bg-success/10 text-success',
+      icon: CheckCircle2,
+    },
+  };
+  const current = states[status] ?? states.idle;
+  const Icon = current.icon;
+
+  return (
+    <div className={`rounded-lg border p-4 ${current.className}`}>
+      <p className="inline-flex items-center gap-2 text-sm font-bold">
+        <Icon className={`h-4 w-4 ${status === 'uploading' || status === 'activating' ? 'animate-spin' : ''}`} />
+        {current.label}
+      </p>
+      <p className="mt-2 text-sm font-semibold leading-5">{current.description}</p>
+    </div>
+  );
+}
+
 function StatusRow({ number, title, description, state = 'pending' }) {
   const styles = {
-    done: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    active: 'border-clinic-teal/30 bg-clinic-mint/70 text-clinic-teal',
-    pending: 'border-clinic-border bg-white text-clinic-muted',
+    done: 'border-success/25 bg-success/10 text-success',
+    active: 'border-secondary/30 bg-secondary/10 text-secondary',
+    pending: 'border-base-300 bg-base-100 text-clinic-muted',
   };
 
   return (
     <div className={`flex h-full items-start gap-3 rounded-xl border p-3 shadow-sm ${styles[state]}`}>
       <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${
-        state === 'done' ? 'bg-emerald-600 text-white' : state === 'active' ? 'bg-white text-clinic-teal ring-1 ring-teal-100' : 'bg-slate-100 text-clinic-muted'
+        state === 'done' ? 'bg-success text-success-content' : state === 'active' ? 'bg-base-100 text-secondary ring-1 ring-secondary/20' : 'bg-base-200 text-clinic-muted'
       }`}>
         {state === 'done' ? <CheckCircle2 className="h-4 w-4" /> : number}
       </span>
@@ -154,7 +202,7 @@ function MessageList({ title, items, tone = 'warning' }) {
   const isError = tone === 'error';
   const Icon = isError ? XCircle : AlertCircle;
   return (
-    <div className={`rounded-lg border p-3 ${isError ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+    <div className={`rounded-lg border p-3 ${isError ? 'border-error/25 bg-error/10 text-error' : 'border-warning/25 bg-warning/10 text-warning'}`}>
       <p className="inline-flex items-center gap-2 text-sm font-bold">
         <Icon className="h-4 w-4" />
         {title}
@@ -170,17 +218,17 @@ function MessageList({ title, items, tone = 'warning' }) {
 
 function ChipGroup({ title, items, emptyText = 'Sin datos detectados' }) {
   return (
-    <div className="rounded-lg border border-clinic-border bg-white p-3">
+    <div className="rounded-xl border border-base-300 bg-base-100 p-3">
       <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-clinic-muted">{title}</p>
       {items?.length ? (
         <div className="mt-2 flex max-h-20 flex-wrap gap-1.5 overflow-y-auto pr-1">
           {items.slice(0, 18).map((item) => (
-            <span key={item} className="rounded-full bg-clinic-mint px-2.5 py-1 text-xs font-bold text-clinic-teal ring-1 ring-teal-100">
+            <span key={item} className="badge badge-info badge-outline h-auto px-2.5 py-1 text-xs font-bold">
               {item}
             </span>
           ))}
           {items.length > 18 && (
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-clinic-muted ring-1 ring-slate-200">
+            <span className="badge badge-ghost h-auto border-base-300 px-2.5 py-1 text-xs font-bold text-clinic-muted">
               +{items.length - 18} mas
             </span>
           )}
@@ -189,6 +237,29 @@ function ChipGroup({ title, items, emptyText = 'Sin datos detectados' }) {
         <p className="mt-2 text-sm font-semibold text-clinic-muted">{emptyText}</p>
       )}
     </div>
+  );
+}
+
+function UploadStatusBadge({ item }) {
+  const status = item.is_active ? 'active' : item.status;
+  const styles = {
+    active: 'badge-success',
+    failed: 'badge-error',
+    processing: 'badge-warning',
+    pending: 'badge-info',
+    superseded: 'badge-ghost border-base-300 text-clinic-muted',
+  };
+  const labels = {
+    active: 'Activa',
+    failed: 'Fallida',
+    processing: 'Procesando',
+    pending: 'Pendiente',
+    superseded: 'Reemplazada',
+  };
+  return (
+    <span className={`badge h-auto px-2.5 py-1 text-xs font-bold ${styles[status] ?? styles.superseded}`}>
+      {labels[status] ?? titleCaseKey(status)}
+    </span>
   );
 }
 
@@ -375,7 +446,7 @@ function DataUploadView({ selectedIndicator }) {
 
   return (
     <section className="space-y-4">
-      <article className="panel p-4 lg:p-5">
+      <SectionPanel className="p-4 lg:p-5">
         <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.9fr]">
           <SectionTitleCard
             eyebrow="Fuente de datos activa"
@@ -383,7 +454,7 @@ function DataUploadView({ selectedIndicator }) {
             description="Archivo usado por busqueda, dashboard y exportaciones."
             icon={DatabaseZap}
             action={(
-              <button type="button" onClick={loadCurrentData} className="icon-button btn-secondary">
+              <button type="button" onClick={loadCurrentData} className="btn btn-outline btn-secondary btn-sm">
                 <RefreshCcw className="h-4 w-4" />
                 Actualizar
               </button>
@@ -393,114 +464,119 @@ function DataUploadView({ selectedIndicator }) {
           <InfoCell label="Registros" value={currentSummary?.total_rows ?? '-'} icon={DatabaseZap} />
           <InfoCell label="Ultima activacion" value={formatDateTime(currentSummary?.activated_at)} icon={FileCheck2} />
         </div>
-      </article>
+      </SectionPanel>
 
-      <article className="panel p-4 lg:p-5">
-        <div className="grid gap-3 lg:grid-cols-4">
+      <SectionPanel className="p-4 lg:p-5">
+        <div className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
           <SectionTitleCard
             eyebrow="Carga del archivo"
             title={isPackageUpload ? `Nuevo paquete ${activeIndicator.shortName}` : `Nuevo Excel ${activeIndicator.shortName}`}
-            description={isPackageUpload ? `Selecciona los ${activeIndicator.requiredFiles} Excel del paquete semanal.` : `Selecciona, valida y activa un .xlsx para ${activeIndicator.title}.`}
+            description={isPackageUpload ? `Selecciona los ${activeIndicator.requiredFiles} Excel del paquete semanal, valida y activa solo si el paquete esta completo.` : `Selecciona, valida y activa un .xlsx para ${activeIndicator.title}.`}
             icon={UploadCloud}
           />
+          <OperationalStatus status={status} preview={preview} currentData={currentData} />
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
           <StatusRow number="1" title={isPackageUpload ? 'Seleccionar paquete' : 'Seleccionar archivo'} description={isPackageUpload ? 'Carga los 4 Excel SI-02.' : 'Carga el Excel mensual.'} state={stepState.upload} />
           <StatusRow number="2" title="Validar estructura" description="Revisa hoja, columnas y corte." state={stepState.validate} />
           <StatusRow number="3" title="Activar datos" description="Reprocesa busqueda y dashboard." state={stepState.activate} />
         </div>
 
         {error && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+          <div className="alert alert-error mt-4 rounded-lg py-3 text-sm font-semibold">
+            <AlertCircle className="h-4 w-4" />
             {error}
           </div>
         )}
 
         <div className="mt-4 grid gap-4 lg:grid-cols-[0.82fr_1.18fr]">
-          <section className="rounded-xl border border-clinic-border bg-slate-50/70 p-4">
+          <section className="rounded-xl border border-base-300 bg-base-200 p-4">
             <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-clinic-teal text-white">
-              <FileSpreadsheet className="h-5 w-5" />
-            </span>
-            <div>
-              <h3 className="font-bold text-clinic-ink">Archivo a procesar</h3>
-              <p className="text-sm text-clinic-muted">{isPackageUpload ? 'El paquete no se activa hasta validar los 4 archivos.' : 'El archivo no se activa hasta validar.'}</p>
-            </div>
-          </div>
-
-          <label className="mt-4 block cursor-pointer rounded-xl border border-clinic-border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-clinic-teal hover:bg-clinic-mint/30">
-            <span className="flex items-center gap-3">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-clinic-mint text-clinic-teal ring-1 ring-teal-100">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-secondary-content">
                 <FileSpreadsheet className="h-5 w-5" />
               </span>
-              <span className="min-w-0">
-                <span className="block text-xs font-bold uppercase tracking-[0.14em] text-clinic-muted">{isPackageUpload ? 'Paquete Excel' : 'Archivo Excel'}</span>
-                <span className="mt-1 block break-words text-sm font-bold text-clinic-ink">{selectedFileLabel}</span>
-                {isPackageUpload && selectedFiles.length > 0 && (
-                  <span className="mt-2 block text-xs font-semibold leading-5 text-clinic-muted">
-                    {selectedFiles.map((file) => file.name).join(' / ')}
-                  </span>
-                )}
-                {isPackageUpload && selectedFiles.length > 0 && !hasRequiredFiles && (
-                  <span className="mt-2 block text-xs font-bold text-amber-700">
-                    Selecciona exactamente {expectedFileCount} archivos para validar el paquete.
-                  </span>
-                )}
-              </span>
-            </span>
-            <input type="file" accept=".xlsx" multiple={isPackageUpload} onChange={handleFileChange} className="sr-only" />
-          </label>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-            <button
-              type="button"
-              onClick={handlePreview}
-              disabled={!canPreview || status === 'uploading' || status === 'activating'}
-              className="icon-button btn-primary disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {status === 'uploading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileCheck2 className="h-4 w-4" />}
-              Validar
-            </button>
-            <button
-              type="button"
-              onClick={handleActivate}
-              disabled={!canActivate}
-              className="icon-button btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {status === 'activating' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseZap className="h-4 w-4" />}
-              {status === 'activating' ? 'Procesando...' : 'Activar'}
-            </button>
-          </div>
-
-          {status === 'activated' && (
-            <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-700">
-              Archivo activado correctamente. El sistema ya usa la nueva informacion.
-            </div>
-          )}
-          {status === 'activating' && (
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">
-              {currentData?.message || 'Procesando la activacion en segundo plano. La version anterior sigue disponible mientras termina.'}
-            </div>
-          )}
-          </section>
-
-          <section className="overflow-hidden rounded-xl border border-clinic-border bg-white">
-          <div className="border-b border-clinic-border bg-slate-50 px-4 py-3">
-            <h2 className="text-xl font-bold text-clinic-ink">Resultado de validacion</h2>
-            <p className="text-sm text-clinic-muted">Resumen antes de activar el archivo como fuente oficial.</p>
-          </div>
-
-          {!preview ? (
-            <div className="grid min-h-64 place-items-center p-5">
-              <div className="max-w-md text-center">
-                <UploadCloud className="mx-auto h-11 w-11 text-clinic-teal" />
-                <h3 className="mt-3 text-lg font-bold text-clinic-ink">Sin archivo validado</h3>
-                <p className="mt-2 text-sm leading-5 text-clinic-muted">
-                  Selecciona un Excel y presiona validar para ver corte, registros, meses, provincias y observaciones.
-                </p>
+              <div>
+                <h3 className="font-bold text-clinic-ink">Archivo a procesar</h3>
+                <p className="text-sm text-clinic-muted">{isPackageUpload ? 'El paquete no se activa hasta validar los 4 archivos.' : 'El archivo no se activa hasta validar.'}</p>
               </div>
             </div>
-          ) : (
+
+            <label className="mt-4 block cursor-pointer rounded-xl border border-dashed border-base-300 bg-base-100 p-4 shadow-sm transition hover:border-secondary hover:bg-info/10">
+              <span className="flex items-center gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-secondary/10 text-secondary ring-1 ring-secondary/20">
+                  <FileSpreadsheet className="h-5 w-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold uppercase tracking-[0.14em] text-clinic-muted">{isPackageUpload ? 'Paquete Excel' : 'Archivo Excel'}</span>
+                  <span className="mt-1 block break-words text-sm font-bold text-clinic-ink">{selectedFileLabel}</span>
+                  {isPackageUpload && selectedFiles.length > 0 && (
+                    <span className="mt-2 block text-xs font-semibold leading-5 text-clinic-muted">
+                      {selectedFiles.map((file) => file.name).join(' / ')}
+                    </span>
+                  )}
+                  {isPackageUpload && selectedFiles.length > 0 && !hasRequiredFiles && (
+                    <span className="mt-2 block text-xs font-bold text-amber-700">
+                      Selecciona exactamente {expectedFileCount} archivos para validar el paquete.
+                    </span>
+                  )}
+                </span>
+              </span>
+              <input type="file" accept=".xlsx" multiple={isPackageUpload} onChange={handleFileChange} className="sr-only" />
+            </label>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <button
+                type="button"
+                onClick={handlePreview}
+                disabled={!canPreview || status === 'uploading' || status === 'activating'}
+                className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {status === 'uploading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileCheck2 className="h-4 w-4" />}
+                Validar
+              </button>
+              <button
+                type="button"
+                onClick={handleActivate}
+                disabled={!canActivate}
+                className="btn btn-outline btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {status === 'activating' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseZap className="h-4 w-4" />}
+                {status === 'activating' ? 'Procesando...' : 'Activar'}
+              </button>
+            </div>
+
+            {status === 'activated' && (
+              <div className="mt-4 rounded-lg border border-success/25 bg-success/10 p-3 text-sm font-bold text-success">
+                Archivo activado correctamente. El sistema ya usa la nueva informacion.
+              </div>
+            )}
+            {status === 'activating' && (
+              <div className="mt-4 rounded-lg border border-warning/25 bg-warning/10 p-3 text-sm font-bold text-warning">
+                {currentData?.message || 'Procesando la activacion en segundo plano. La version anterior sigue disponible mientras termina.'}
+              </div>
+            )}
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-base-300 bg-base-100">
+            <div className="border-b border-base-300 bg-base-200 px-4 py-3">
+              <h2 className="text-xl font-black text-primary">Resultado de validacion</h2>
+              <p className="text-sm text-clinic-muted">Resumen antes de activar el archivo como fuente oficial.</p>
+            </div>
+
+            {!preview ? (
+              <div className="grid min-h-64 place-items-center p-5">
+                <div className="max-w-md text-center">
+                  <UploadCloud className="mx-auto h-11 w-11 text-secondary" />
+                  <h3 className="mt-3 text-lg font-bold text-clinic-ink">Sin archivo validado</h3>
+                  <p className="mt-2 text-sm leading-5 text-clinic-muted">
+                    Selecciona un Excel y presiona validar para ver corte, registros, meses, provincias y observaciones.
+                  </p>
+                </div>
+              </div>
+            ) : (
             <div className="space-y-3 p-4">
-              <div className={`rounded-lg border p-3 ${preview.valid ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+              <div className={`rounded-lg border p-3 ${preview.valid ? 'border-success/25 bg-success/10 text-success' : 'border-error/25 bg-error/10 text-error'}`}>
                 <p className="inline-flex items-center gap-2 text-sm font-bold">
                   {preview.valid ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                   {preview.valid ? 'Archivo valido para procesamiento' : 'El archivo necesita correcciones antes de activarse'}
@@ -545,9 +621,9 @@ function DataUploadView({ selectedIndicator }) {
           )}
           </section>
         </div>
-      </article>
+      </SectionPanel>
 
-      <article className="panel p-4 lg:p-5">
+      <SectionPanel className="p-4 lg:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <SectionTitleCard
             eyebrow="Auditoria"
@@ -555,17 +631,17 @@ function DataUploadView({ selectedIndicator }) {
             description="Versiones procesadas, archivo, actor, estado y hash SHA-256."
             icon={FileCheck2}
             action={(
-              <button type="button" onClick={loadUploadHistory} className="icon-button btn-secondary">
+              <button type="button" onClick={loadUploadHistory} className="btn btn-outline btn-secondary btn-sm">
                 <RefreshCcw className="h-4 w-4" />
                 Actualizar
               </button>
             )}
           />
         </div>
-        <div className="mt-4 overflow-hidden rounded-xl border border-clinic-border bg-white">
+        <div className="mt-4 overflow-hidden rounded-xl border border-base-300 bg-base-100">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-clinic-border text-sm">
-              <thead className="bg-slate-100 text-left text-clinic-ink">
+            <table className="table table-zebra table-sm min-w-full text-sm">
+              <thead className="bg-base-200 text-left text-primary">
                 <tr>
                   <th className="px-4 py-3 font-bold">Estado</th>
                   <th className="px-4 py-3 font-bold">Archivo</th>
@@ -576,19 +652,11 @@ function DataUploadView({ selectedIndicator }) {
                   <th className="px-4 py-3 font-bold">SHA-256</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-clinic-border">
+              <tbody>
                 {uploadHistory.map((item) => (
-                  <tr key={item.id} className="text-clinic-muted">
+                  <tr key={item.id} className={`text-clinic-muted ${item.is_active ? 'bg-success/10' : ''}`}>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${
-                        item.is_active
-                          ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-                          : item.status === 'failed'
-                            ? 'bg-red-50 text-red-700 ring-red-200'
-                            : 'bg-slate-100 text-clinic-muted ring-slate-200'
-                      }`}>
-                        {item.is_active ? 'Activa' : titleCaseKey(item.status)}
-                      </span>
+                      <UploadStatusBadge item={item} />
                     </td>
                     <td className="max-w-xs px-4 py-3 font-semibold text-clinic-ink">
                       <span className="block truncate">{item.original_filename || '-'}</span>
@@ -621,7 +689,7 @@ function DataUploadView({ selectedIndicator }) {
             </table>
           </div>
         </div>
-      </article>
+      </SectionPanel>
     </section>
   );
 }

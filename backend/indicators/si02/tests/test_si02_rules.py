@@ -103,6 +103,10 @@ class SI02RuleTests(unittest.TestCase):
         si0204 = next(item for item in result["subindicators"] if item["subindicator_code"] == "si02_04")
         self.assertTrue(si0204["details"]["hierro_preventivo"]["cumple"])
 
+        filtered_result = search_by_dni(self.package_data, "94061040", province=None, subindicator="si02_04")
+        self.assertIsNotNone(filtered_result)
+        self.assertEqual([item["subindicator_code"] for item in filtered_result["subindicators"]], ["si02_04"])
+
 
 if __name__ == "__main__":
     unittest.main()

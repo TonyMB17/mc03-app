@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from sqlalchemy.orm import Session
 
 try:
     from .schemas import (
@@ -25,6 +26,11 @@ try:
         HealthResponse,
         LoginRequest,
         LoginResponse,
+        RolesResponse,
+        UserAdminItem,
+        UserCreateRequest,
+        UserUpdateRequest,
+        UsersResponse,
         AuditEventsResponse,
         OmisosResponse,
         ReportSummary,
@@ -40,10 +46,17 @@ try:
         TOKEN_TYPE,
         authenticate_user,
         create_access_token,
+        create_user,
         current_user,
+        ensure_security_defaults,
+        list_roles,
+        list_users,
+        require_permissions,
         require_roles,
+        update_user,
         user_response,
     )
+    from .db.session import get_db
 except ImportError:
     from schemas import (
         DataActivateRequest,
@@ -53,6 +66,11 @@ except ImportError:
         HealthResponse,
         LoginRequest,
         LoginResponse,
+        RolesResponse,
+        UserAdminItem,
+        UserCreateRequest,
+        UserUpdateRequest,
+        UsersResponse,
         AuditEventsResponse,
         OmisosResponse,
         ReportSummary,
@@ -68,10 +86,17 @@ except ImportError:
         TOKEN_TYPE,
         authenticate_user,
         create_access_token,
+        create_user,
         current_user,
+        ensure_security_defaults,
+        list_roles,
+        list_users,
+        require_permissions,
         require_roles,
+        update_user,
         user_response,
     )
+    from db.session import get_db
 
 app = FastAPI(
     title="Sistema de Seguimiento Neonatal - MC-03",
@@ -335,7 +360,7 @@ def _persist_active_upload(definition, data_bundle: dict, filepath: Path, metada
         )
 
 
-def _search_active_upload_by_dni(definition, dni: str, province: str | None):
+def _search_active_upload_by_dni(definition, dni: str, province: str | None, subindicator: str | None = None):
     searcher = _indicator_db_searcher(definition)
     active_checker = _indicator_active_upload_checker(definition)
     if searcher is None or active_checker is None:
@@ -353,6 +378,8 @@ def _search_active_upload_by_dni(definition, dni: str, province: str | None):
         with SessionLocal() as db:
             if active_checker(db) is None:
                 return None, False
+            if subindicator:
+                return searcher(db, dni, province, subindicator), True
             return searcher(db, dni, province), True
     except SQLAlchemyError:
         return None, False
@@ -597,6 +624,18 @@ def startup_event():
                 "current_data_summary": None,
             }
 
+    try:
+        try:
+            from .db.session import SessionLocal
+        except ImportError:
+            from db.session import SessionLocal
+
+        with SessionLocal() as db:
+            ensure_security_defaults(db)
+    except Exception:
+        # The app can still run in development mode without a reachable DB.
+        pass
+
 
 @app.get("/health", response_model=HealthResponse, tags=["Sistema"])
 def health_check():
@@ -605,8 +644,9 @@ def health_check():
 
 
 @app.post("/api/auth/login", response_model=LoginResponse, tags=["Seguridad"])
-def api_auth_login(payload: LoginRequest):
-    user = authenticate_user(payload.username, payload.password)
+def api_auth_login(payload: LoginRequest, db: Session = Depends(get_db)):
+    ensure_security_defaults(db)
+    user = authenticate_user(db, payload.username, payload.password)
     if user is None:
         raise HTTPException(status_code=401, detail="Usuario o contrasena incorrectos")
     return LoginResponse(access_token=create_access_token(user), token_type=TOKEN_TYPE, user=user_response(user))
@@ -615,6 +655,49 @@ def api_auth_login(payload: LoginRequest):
 @app.get("/api/auth/me", tags=["Seguridad"])
 def api_auth_me(user=Depends(current_user)):
     return user_response(user)
+
+
+@app.get("/api/security/users", response_model=UsersResponse, tags=["Seguridad"])
+def api_security_users(
+    _user=Depends(require_permissions("users_admin")),
+    db: Session = Depends(get_db),
+):
+    return UsersResponse(users=list_users(db))
+
+
+@app.post("/api/security/users", response_model=UserAdminItem, tags=["Seguridad"])
+def api_security_create_user(
+    payload: UserCreateRequest,
+    _user=Depends(require_permissions("users_admin")),
+    db: Session = Depends(get_db),
+):
+    return create_user(
+        db,
+        username=payload.username.strip(),
+        password=payload.password,
+        display_name=payload.display_name.strip(),
+        role=payload.role,
+        is_active=payload.is_active,
+    )
+
+
+@app.patch("/api/security/users/{username}", response_model=UserAdminItem, tags=["Seguridad"])
+def api_security_update_user(
+    username: str,
+    payload: UserUpdateRequest,
+    _user=Depends(require_permissions("users_admin")),
+    db: Session = Depends(get_db),
+):
+    return update_user(db, username, payload.model_dump(exclude_unset=True))
+
+
+@app.get("/api/security/roles", response_model=RolesResponse, tags=["Seguridad"])
+def api_security_roles(
+    _user=Depends(require_permissions("users_admin")),
+    db: Session = Depends(get_db),
+):
+    ensure_security_defaults(db)
+    return RolesResponse(roles=list_roles(db))
 
 
 @app.get("/api/indicators", tags=["Sistema"])
@@ -938,11 +1021,13 @@ def api_search_dni(
     dni: str,
     province: str = Query("ABANCAY"),
     indicator: str = Query("mc03"),
+    subindicator: str | None = Query(None),
     _user=Depends(require_roles(ROLE_CLINICAL, ROLE_SUPERVISOR, ROLE_ADMIN)),
 ):
     definition = _indicator_definition(indicator)
     indicator = definition.code
-    db_result, searched_database = _search_active_upload_by_dni(definition, dni, province)
+    active_subindicator = subindicator if indicator == "si02" else None
+    db_result, searched_database = _search_active_upload_by_dni(definition, dni, province, active_subindicator)
     if searched_database:
         if db_result is None:
             raise HTTPException(status_code=404, detail="DNI no encontrado en la carga activa")
@@ -952,7 +1037,10 @@ def api_search_dni(
     if data is None:
         raise HTTPException(status_code=404, detail="No hay datos cargados en el servidor")
 
-    result = definition.search_by_dni(data, dni, _active_cutoff_date(indicator), province)
+    if active_subindicator:
+        result = definition.search_by_dni(data, dni, _active_cutoff_date(indicator), province, active_subindicator)
+    else:
+        result = definition.search_by_dni(data, dni, _active_cutoff_date(indicator), province)
     if result is None:
         raise HTTPException(status_code=404, detail=f"No se encontro registro para DNI: {dni}")
 

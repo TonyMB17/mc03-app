@@ -21,14 +21,16 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: indicadores-backend
+    env_file:
+      - .env
+      - backend/.env
     environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/indicator_tracking
-      AUTH_ENABLED: "false"
-      AUTH_SECRET_KEY: change-this-secret-before-production
-      AUTH_TOKEN_TTL_MINUTES: "480"
-      AUTH_USERS_JSON: '{"clinico":{"password":"cambiar-clinico","role":"clinical","display_name":"Usuario clinico"},"supervisor":{"password":"cambiar-supervisor","role":"supervisor","display_name":"Usuario supervisor"},"admin":{"password":"cambiar-admin","role":"admin","display_name":"Administrador"}}'
-      BACKUP_RETENTION_DAYS: "30"
-      UPLOAD_RETENTION_DAYS: "90"
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@db:5432/indicator_tracking}
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:-change-this-secret-before-production}
+      AUTH_TOKEN_TTL_MINUTES: ${AUTH_TOKEN_TTL_MINUTES:-480}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      UPLOAD_RETENTION_DAYS: ${UPLOAD_RETENTION_DAYS:-90}
     depends_on:
       db:
         condition: service_healthy

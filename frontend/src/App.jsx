@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, BarChart3, Baby, DatabaseZap, LogOut, Search, Settings2, ShieldCheck, SlidersHorizontal, UserCheck } from 'lucide-react';
+import { Activity, BarChart3, DatabaseZap, Layers3, LogOut, PanelLeftClose, PanelLeftOpen, Search, ShieldCheck, SlidersHorizontal, UserCheck, UsersRound } from 'lucide-react';
 import api, { clearAuth, loadStoredAuth, saveAuthUser, setAuthToken } from './api/client';
-import IndicatorSelector from './components/IndicatorSelector';
+import IndicatorNavItem from './components/IndicatorNavItem';
+import ModuleTab from './components/ModuleTab';
+import PageHeader from './components/PageHeader';
+import TopbarChip from './components/TopbarChip';
 import indicators, { indicatorList } from './indicators/registry';
 import ConfigView, { ALL_PROVINCES, DEFAULT_TARGET_COVERAGE } from './pages/ConfigView';
 import Dashboard from './pages/IndicatorDashboard';
 import DataUploadView from './pages/DataUploadView';
 import LoginView from './LoginView';
 import SearchDNI from './pages/RecordSearch';
+import SecurityUsers from './pages/SecurityUsers';
+import usiLogoIcon from './assets/usi-logo-isotipo.svg';
 
 const views = {
   search: {
@@ -34,27 +39,19 @@ const views = {
     icon: DatabaseZap,
     permission: 'data_upload',
   },
+  users: {
+    title: 'Usuarios y permisos',
+    description: 'Administra accesos, roles y permisos de la plataforma.',
+    icon: UsersRound,
+    permission: 'users_admin',
+  },
 };
-
-function NavButton({ active, children, icon: Icon, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition duration-200 ${
-        active
-          ? 'bg-white text-clinic-ink shadow-soft'
-          : 'border border-white/20 bg-white/10 text-white/85 hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/20 hover:text-white'
-      }`}
-    >
-      <Icon className={`h-4 w-4 transition ${active ? 'text-clinic-teal' : 'text-clinic-mint group-hover:text-white'}`} />
-      {children}
-    </button>
-  );
-}
 
 function App() {
   const [selectedIndicator, setSelectedIndicator] = useState('mc03');
+  const [selectedSi02Subindicator, setSelectedSi02Subindicator] = useState('all');
+  const [si02AccordionOpen, setSi02AccordionOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeView, setActiveView] = useState('search');
   const [selectedProvince, setSelectedProvince] = useState('ABANCAY');
   const [targetCoverage, setTargetCoverage] = useState(DEFAULT_TARGET_COVERAGE);
@@ -70,6 +67,8 @@ function App() {
   const currentView = views[safeActiveView];
   const CurrentIcon = currentView.icon;
   const activeFilterLabel = selectedProvince === ALL_PROVINCES ? 'Todos los datos' : selectedProvince;
+  const activeScopeLabel = selectedProvince === 'ABANCAY' ? 'RS Abancay' : activeFilterLabel;
+  const drawerWidth = sidebarCollapsed ? '5rem' : '18rem';
 
   useEffect(() => {
     let cancelled = false;
@@ -107,8 +106,34 @@ function App() {
 
   const handleIndicatorChange = (nextIndicator) => {
     setSelectedIndicator(nextIndicator);
+    setSelectedSi02Subindicator('all');
+    setSi02AccordionOpen(nextIndicator === 'si02');
     setSelectedProvince(indicators[nextIndicator].defaultProvince);
     setTargetCoverage(indicators[nextIndicator].defaultTarget);
+  };
+
+  const handleSi02SubindicatorChange = (nextSubindicator) => {
+    handleIndicatorChange('si02');
+    setSelectedSi02Subindicator(nextSubindicator);
+    setSi02AccordionOpen(true);
+    if (safeActiveView !== 'search' && permissions.includes('dashboard')) {
+      setActiveView('dashboard');
+    }
+  };
+
+  const handleSidebarIndicatorClick = (indicator) => {
+    if (indicator.code !== 'si02') {
+      handleIndicatorChange(indicator.code);
+      return;
+    }
+
+    if (selectedIndicator !== 'si02') {
+      handleIndicatorChange('si02');
+      setSi02AccordionOpen(true);
+      return;
+    }
+
+    setSi02AccordionOpen((current) => !current);
   };
 
   const handleLogin = (nextUser) => {
@@ -123,7 +148,7 @@ function App() {
 
   if (authStatus === 'loading') {
     return (
-      <div className="grid min-h-screen place-items-center bg-clinic-page px-4 text-clinic-ink">
+      <div data-theme="usiTheme" className="grid min-h-screen place-items-center bg-base-200 px-4 text-base-content">
         <div className="panel p-6 text-center">
           <ShieldCheck className="mx-auto h-8 w-8 text-clinic-teal" />
           <p className="mt-3 text-sm font-bold text-clinic-muted">Preparando sesion...</p>
@@ -137,91 +162,217 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen overflow-hidden bg-clinic-page px-4 py-6 text-clinic-ink sm:px-6 lg:py-8">
-      <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute left-0 top-0 h-[26rem] w-[40rem] bg-[radial-gradient(circle_at_center,rgba(250,206,255,0.32),transparent_70%)]" />
-        <div className="absolute right-0 top-0 h-[26rem] w-[40rem] bg-[radial-gradient(circle_at_center,rgba(206,255,250,0.42),transparent_72%)]" />
-      </div>
+    <div data-theme="usiTheme" className="app-shell min-h-screen bg-base-200">
+      <aside
+        className="fixed inset-y-0 left-0 z-50 flex flex-col overflow-x-hidden border-r border-clinic-line bg-base-100 shadow-soft transition-[width] duration-200"
+        style={{ width: drawerWidth }}
+      >
+        <div className={`border-b border-clinic-line px-3 ${sidebarCollapsed ? 'flex min-h-24 flex-col items-center justify-center gap-2' : 'flex min-h-16 items-center justify-between gap-3'}`}>
+          <div className={`flex min-w-0 items-center gap-3 ${sidebarCollapsed ? 'hidden' : ''}`}>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-base-300 bg-base-100 p-1.5 shadow-sm">
+              <img src={usiLogoIcon} alt="USI" className="h-full w-full object-contain" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase text-clinic-muted">Red de Salud</p>
+              <p className="truncate text-sm font-bold text-clinic-ink">Abancay</p>
+            </div>
+          </div>
+          {sidebarCollapsed && (
+            <span className="grid h-11 w-11 place-items-center rounded-xl border border-base-300 bg-base-100 p-1.5 shadow-sm">
+              <img src={usiLogoIcon} alt="USI" className="h-full w-full object-contain" />
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((current) => !current)}
+            className="btn btn-square btn-ghost h-9 min-h-9 w-9 rounded-md border border-base-300 bg-base-100 text-base-content/60 hover:border-secondary hover:bg-base-200 hover:text-secondary"
+            aria-label={sidebarCollapsed ? 'Expandir sidebar' : 'Minimizar sidebar'}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
+        </div>
 
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="animate-slide-up rounded-2xl border border-white/10 bg-gradient-to-br from-clinic-navy via-[#17485A] to-clinic-teal p-5 shadow-soft lg:p-7">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-white/90">
-                <ShieldCheck className="h-4 w-4 text-clinic-mint" />
-                Red de Salud Abancay
-              </div>
-              <div className="mt-5 flex items-center gap-4">
-                <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-clinic-mint text-clinic-navy shadow-soft ring-1 ring-white/30">
-                  <Baby className="h-7 w-7" />
-                </span>
-                <div>
-                  <h1 className="text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl">
-                    {activeIndicator.title}
-                  </h1>
-                  <p className="mt-2 text-sm leading-6 text-white/75 sm:text-base">
-                    {activeIndicator.description} {currentView.description}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5 flex flex-wrap gap-3">
-                <IndicatorSelector indicators={indicatorList} value={selectedIndicator} onChange={handleIndicatorChange} />
-                <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white/75">
-                  <Activity className="h-4 w-4 text-clinic-mint" />
-                  Filtro activo: <span className="text-white">{activeFilterLabel}</span>
-                </p>
-                <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white/75">
-                  <Settings2 className="h-4 w-4 text-clinic-mint" />
-                  Meta: <span className="text-white">{targetCoverage}%</span>
-                </p>
-                <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white/75">
-                  <UserCheck className="h-4 w-4 text-clinic-mint" />
-                  {user.role_label}: <span className="text-white">{user.display_name}</span>
-                </p>
-                {user.auth_enabled && (
-                  <button type="button" onClick={handleLogout} className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/20">
-                    <LogOut className="h-4 w-4 text-clinic-mint" />
-                    Salir
-                  </button>
-                )}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <section className="mb-4">
+            {!sidebarCollapsed && <p className="mb-2 px-1 text-xs font-bold uppercase text-clinic-muted">Indicadores</p>}
+            <div className="grid gap-1">
+              {indicatorList.map((indicator) => {
+                const isSi02 = indicator.code === 'si02';
+                const active = selectedIndicator === indicator.code;
+                return (
+                  <div key={indicator.code}>
+                    <div className="flex items-stretch">
+                      {sidebarCollapsed ? (
+                        <button
+                          type="button"
+                          title={indicator.title}
+                          onClick={() => handleSidebarIndicatorClick(indicator)}
+                          className={`grid h-10 w-full place-items-center rounded-md border text-sm font-bold transition ${
+                            active
+                              ? 'border-primary bg-primary text-primary-content'
+                              : 'border-transparent text-clinic-muted hover:border-base-300 hover:bg-base-200 hover:text-clinic-ink'
+                          }`}
+                        >
+                          {indicator.shortName.replace('-', '')}
+                        </button>
+                      ) : (
+                        <IndicatorNavItem
+                          active={active}
+                          indicator={indicator}
+                          expandable={isSi02}
+                          expanded={si02AccordionOpen}
+                          onClick={() => handleSidebarIndicatorClick(indicator)}
+                        />
+                      )}
+                    </div>
+                    {isSi02 && si02AccordionOpen && !sidebarCollapsed && (
+                      <div className="ml-3 mt-1 grid gap-1 border-l border-clinic-line pl-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSi02SubindicatorChange('all')}
+                          className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-bold transition ${
+                            selectedIndicator === 'si02' && selectedSi02Subindicator === 'all'
+                              ? 'bg-primary text-primary-content'
+                              : 'text-clinic-muted hover:bg-base-200 hover:text-clinic-ink'
+                          }`}
+                        >
+                          <Layers3 className="h-3.5 w-3.5 text-secondary" />
+                          Global SI-02
+                        </button>
+                        {(indicator.subindicators ?? []).map((subindicator) => (
+                          <button
+                            key={subindicator.code}
+                            type="button"
+                            onClick={() => handleSi02SubindicatorChange(subindicator.code)}
+                            className={`rounded-md px-2.5 py-2 text-left transition ${
+                              selectedIndicator === 'si02' && selectedSi02Subindicator === subindicator.code
+                                ? 'bg-primary text-primary-content'
+                                : 'text-clinic-muted hover:bg-base-200 hover:text-clinic-ink'
+                            }`}
+                          >
+                            <span className="block text-xs font-bold">{subindicator.officialCode}</span>
+                            <span className="mt-0.5 block text-[0.68rem] leading-4">{subindicator.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {!sidebarCollapsed && (
+            <div className="rounded-lg border border-base-300 bg-base-200 p-3 text-xs leading-5 text-clinic-muted">
+              Selecciona un indicador para actualizar las vistas de busqueda, tablero y carga de datos.
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-base-300 bg-base-200 p-3">
+          {sidebarCollapsed ? (
+            <div className="grid place-items-center">
+              <UserCheck className="h-5 w-5 text-secondary" />
+            </div>
+          ) : (
+            <>
+              <p className="text-xs font-bold uppercase text-clinic-muted">Sesion</p>
+              <p className="mt-1 truncate text-sm font-bold text-clinic-ink">{user.display_name}</p>
+              <p className="text-xs leading-5 text-clinic-muted">{user.role_label}</p>
+            </>
+          )}
+        </div>
+      </aside>
+
+      <header
+        className="fixed right-0 top-0 z-40 border-b border-primary/30 bg-primary text-primary-content shadow-soft transition-[left] duration-200"
+        style={{ left: drawerWidth }}
+      >
+        <div className="mx-auto flex min-h-[7.25rem] max-w-[92rem] flex-col justify-center gap-3 px-4 py-3 sm:px-6 lg:min-h-[6.5rem] lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 max-w-4xl">
+            <div className="flex items-center gap-3">
+              <span className="hidden h-11 w-1 rounded-full bg-secondary sm:block" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary-content/68">Plataforma de indicadores</p>
+                <h1 className="truncate text-xl font-bold leading-tight text-primary-content sm:text-2xl">{activeIndicator.title}</h1>
+                <p className="mt-1 max-w-3xl text-sm leading-5 text-primary-content/76">{activeIndicator.description}</p>
               </div>
             </div>
-
-            <nav className="grid gap-3 sm:grid-cols-2 lg:flex" aria-label="Vistas principales">
-              {permissions.includes('search') && (
-                <NavButton active={safeActiveView === 'search'} icon={Search} onClick={() => setActiveView('search')}>
-                  Busqueda DNI
-                </NavButton>
-              )}
-              {permissions.includes('dashboard') && (
-                <NavButton active={safeActiveView === 'dashboard'} icon={BarChart3} onClick={() => setActiveView('dashboard')}>
-                  Dashboard
-                </NavButton>
-              )}
-              {permissions.includes('config') && (
-                <NavButton active={safeActiveView === 'config'} icon={SlidersHorizontal} onClick={() => setActiveView('config')}>
-                  Configuracion
-                </NavButton>
-              )}
-              {permissions.includes('data_upload') && (
-                <NavButton active={safeActiveView === 'data'} icon={DatabaseZap} onClick={() => setActiveView('data')}>
-                  Carga datos
-                </NavButton>
-              )}
-            </nav>
           </div>
-        </header>
 
-        <main className="animate-fade-in">
-          <div className="mb-4 flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-clinic-teal text-white shadow-sm ring-1 ring-clinic-border">
-              <CurrentIcon className="h-5 w-5" />
-            </span>
-            <h2 className="text-2xl font-bold text-clinic-ink">{currentView.title}</h2>
+          <div className="mr-2 flex max-w-full shrink-0 flex-wrap items-center gap-y-1 rounded-xl border border-primary-content/15 bg-primary-content/10 px-4 py-2 lg:mr-4 lg:justify-end">
+            <TopbarChip icon={Activity} label="Ambito" value={activeScopeLabel} />
+            <TopbarChip icon={UserCheck} label={user.role_label} value={user.display_name} />
+            {user.auth_enabled && (
+              <TopbarChip
+                as="button"
+                type="button"
+                onClick={handleLogout}
+                className="ml-2 rounded-md border border-primary-content/25 px-3 hover:bg-primary-content/15"
+              >
+                <LogOut className="h-4 w-4 text-primary-content/75" />
+                <span className="font-bold text-primary-content">Salir</span>
+              </TopbarChip>
+            )}
           </div>
-          {safeActiveView === 'search' && <SearchDNI selectedProvince={selectedProvince} selectedIndicator={selectedIndicator} />}
+        </div>
+      </header>
+
+      <div className="transition-[padding-left] duration-200" style={{ paddingLeft: drawerWidth }}>
+        <main className="mx-auto min-w-0 max-w-[92rem] animate-fade-in px-4 pb-6 pt-40 sm:px-6 lg:pt-32">
+          <nav
+            role="tablist"
+            className="mb-4 flex gap-1 overflow-x-auto rounded-xl border border-base-300 bg-base-100 p-2 shadow-sm"
+            aria-label="Modulos principales"
+          >
+            {permissions.includes('search') && (
+              <ModuleTab active={safeActiveView === 'search'} icon={Search} onClick={() => setActiveView('search')}>
+                Busqueda DNI
+              </ModuleTab>
+            )}
+            {permissions.includes('dashboard') && (
+              <ModuleTab active={safeActiveView === 'dashboard'} icon={BarChart3} onClick={() => setActiveView('dashboard')}>
+                Dashboard
+              </ModuleTab>
+            )}
+            {permissions.includes('config') && (
+              <ModuleTab active={safeActiveView === 'config'} icon={SlidersHorizontal} onClick={() => setActiveView('config')}>
+                Configuracion
+              </ModuleTab>
+            )}
+            {permissions.includes('data_upload') && (
+              <ModuleTab active={safeActiveView === 'data'} icon={DatabaseZap} onClick={() => setActiveView('data')}>
+                Carga datos
+              </ModuleTab>
+            )}
+            {permissions.includes('users_admin') && (
+              <ModuleTab active={safeActiveView === 'users'} icon={UsersRound} onClick={() => setActiveView('users')}>
+                Usuarios
+              </ModuleTab>
+            )}
+          </nav>
+
+          <PageHeader
+            icon={CurrentIcon}
+            title={currentView.title}
+            description={currentView.description}
+          />
+          {safeActiveView === 'search' && (
+            <SearchDNI
+              selectedProvince={selectedProvince}
+              selectedIndicator={selectedIndicator}
+              selectedSi02Subindicator={selectedSi02Subindicator}
+              onSi02SubindicatorChange={setSelectedSi02Subindicator}
+            />
+          )}
           {safeActiveView === 'dashboard' && (
-            <Dashboard selectedProvince={selectedProvince} targetCoverage={targetCoverage} selectedIndicator={selectedIndicator} />
+            <Dashboard
+              selectedProvince={selectedProvince}
+              targetCoverage={targetCoverage}
+              selectedIndicator={selectedIndicator}
+              selectedSi02Subindicator={selectedSi02Subindicator}
+              onSi02SubindicatorChange={setSelectedSi02Subindicator}
+            />
           )}
           {safeActiveView === 'config' && (
             <ConfigView
@@ -233,6 +384,7 @@ function App() {
             />
           )}
           {safeActiveView === 'data' && <DataUploadView selectedIndicator={selectedIndicator} />}
+          {safeActiveView === 'users' && <SecurityUsers />}
         </main>
       </div>
     </div>
