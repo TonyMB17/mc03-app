@@ -26,7 +26,7 @@ function buildMonthOrder(item) {
   return year * 12 + month;
 }
 
-export function useDashboardData(selectedProvince, targetCoverage, selectedIndicator) {
+export function useDashboardData(selectedProvince, targetCoverage, selectedIndicator, externalSelectedSubindicator = 'all') {
   const [status, setStatus] = useState('cargando...');
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState(null);
@@ -61,8 +61,8 @@ export function useDashboardData(selectedProvince, targetCoverage, selectedIndic
 
   // Reset selected subindicator when base indicator changes
   useEffect(() => {
-    setSelectedSubindicator('all');
-  }, [selectedIndicator]);
+    setSelectedSubindicator(selectedIndicator === 'si02' ? externalSelectedSubindicator : 'all');
+  }, [externalSelectedSubindicator, selectedIndicator]);
 
   // Validate selected subindicator against options
   const configuredSubindicators = summary?.subindicators ? Object.keys(summary.subindicators) : [];

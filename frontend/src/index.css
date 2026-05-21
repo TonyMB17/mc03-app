@@ -4,9 +4,33 @@
 
 :root {
   color-scheme: light;
-  --color-1: #FACEFF;
-  --color-2: #FFFACE;
-  --color-3: #CEFFFA;
+  --usi-navy: #102D52;
+  --usi-celeste: #0EA5E9;
+  --usi-lilac: #C2A4CF;
+  --clinic-page: #F8FAFC;
+  --clinic-surface: #FFFFFF;
+  --clinic-elevated: #F1F5F9;
+  --clinic-ink: #0F172A;
+  --clinic-muted: #64748B;
+  --clinic-subtle: #94A3B8;
+  --clinic-border: #E2E8F0;
+  --clinic-line: #E8EEF5;
+  --clinic-teal: #0EA5E9;
+  --clinic-blue: #0EA5E9;
+  --clinic-indigo: #102D52;
+  --clinic-mint: #E0F2FE;
+  --clinic-sky: #E0F2FE;
+  --clinic-lilac: #F6F0F9;
+  --clinic-cream: #F8FAFC;
+  --clinic-rose: #F7F1FA;
+  --state-success: #10B981;
+  --state-danger: #EF4444;
+  --state-warning: #F59E0B;
+  --state-info: #0EA5E9;
+  --radius-panel: 0.75rem;
+  --radius-control: 0.5rem;
+  --shadow-panel: 0 12px 30px rgba(15, 23, 42, 0.08);
+  --shadow-lift: 0 16px 36px rgba(15, 23, 42, 0.13);
 }
 
 html {
@@ -17,11 +41,11 @@ html {
 body {
   margin: 0;
   min-height: 100%;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: Montserrat, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background:
-    radial-gradient(circle at 10% 0%, rgba(250, 206, 255, 0.24), transparent 28rem),
-    radial-gradient(circle at 90% 4%, rgba(206, 255, 250, 0.36), transparent 30rem),
-    linear-gradient(135deg, #F4F7FA 0%, #F7FAFC 50%, #EFF8F7 100%);
+    linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 46%, #F8FAFC 100%),
+    linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(194, 164, 207, 0.1) 100%);
+  color: var(--clinic-ink);
 }
 
 button,
@@ -45,34 +69,90 @@ input {
 }
 
 ::selection {
-  background: #FACEFF;
-  color: #102A43;
+  background: var(--clinic-mint);
+  color: var(--clinic-ink);
 }
 
 @layer components {
-  .panel {
+  .app-shell {
+    min-height: 100vh;
+    background: #F8FAFC;
+    color: var(--clinic-ink);
+  }
+
+  .platform-header {
+    border-radius: var(--radius-panel);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: linear-gradient(135deg, #102D52 0%, #173E6D 58%, #0EA5E9 100%);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .topbar-chip {
+    display: inline-flex;
+    min-height: 2.5rem;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--clinic-border);
+    background: #FFFFFF;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--clinic-ink);
+  }
+
+  .usi-card {
     border-radius: 1rem;
-    border: 1px solid rgba(216, 226, 234, 0.95);
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 18px 45px rgba(16, 42, 67, 0.10);
-    backdrop-filter: blur(18px);
+    border: 1px solid var(--clinic-border);
+    background: var(--clinic-surface);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .usi-card-header {
+    border-bottom: 1px solid var(--clinic-border);
+    padding: 1rem 1.25rem;
+  }
+
+  .usi-card-body {
+    padding: 1.25rem;
+  }
+
+  .panel {
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--clinic-border);
+    background: var(--clinic-surface);
+    box-shadow: var(--shadow-panel);
   }
 
   .inner-panel {
-    border-radius: 0.75rem;
-    border: 1px solid #D8E2EA;
-    background: #FFFFFF;
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--clinic-line);
+    background: var(--clinic-surface);
+  }
+
+  .section-panel {
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--clinic-border);
+    background: var(--clinic-surface);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .muted-panel {
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--clinic-line);
+    background: var(--clinic-elevated);
   }
 
   .field {
     margin-top: 0.5rem;
     width: 100%;
-    border-radius: 0.5rem;
-    border: 1px solid #C8D4DF;
-    background: #FFFFFF;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--clinic-border);
+    background: var(--clinic-surface);
     padding: 0.75rem 1rem;
-    color: #102A43;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    color: var(--clinic-ink);
+    box-shadow: 0 1px 2px rgba(23, 32, 51, 0.05);
     outline: none;
   }
 
@@ -81,8 +161,8 @@ input {
   }
 
   .field:focus {
-    border-color: #0EA5E9;
-    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.16);
+    border-color: var(--usi-celeste);
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.18);
   }
 
   .icon-button {
@@ -91,33 +171,75 @@ input {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-control);
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
     font-weight: 700;
   }
 
   .btn-primary {
-    background: #0EA5E9;
+    border: 1px solid var(--usi-navy);
+    background: var(--usi-navy);
     color: #FFFFFF;
-    box-shadow: 0 10px 24px rgba(14, 165, 233, 0.24);
+    box-shadow: 0 10px 22px rgba(16, 45, 82, 0.22);
   }
 
   .btn-primary:hover {
-    background: #0284C7;
+    background: #0B2442;
     transform: translateY(-1px);
   }
 
   .btn-secondary {
-    border: 1px solid #C8D4DF;
-    background: #FFFFFF;
-    color: #102A43;
+    border: 1px solid rgba(14, 165, 233, 0.34);
+    background: var(--clinic-surface);
+    color: #0369A1;
   }
 
   .btn-secondary:hover {
-    border-color: #0EA5E9;
-    background: #F0F9FF;
-    color: #0369A1;
+    border-color: var(--usi-celeste);
+    background: #E0F2FE;
+    color: #075985;
     transform: translateY(-1px);
+  }
+
+  .status-success {
+    border-color: rgba(16, 185, 129, 0.3);
+    background: #ECFDF5;
+    color: #047857;
+  }
+
+  .status-danger {
+    border-color: rgba(239, 68, 68, 0.3);
+    background: #FEF2F2;
+    color: #991B1B;
+  }
+
+  .status-warning {
+    border-color: rgba(245, 158, 11, 0.35);
+    background: #FFFBEB;
+    color: #92400E;
+  }
+
+  .status-info {
+    border-color: rgba(14, 165, 233, 0.3);
+    background: #EFF6FF;
+    color: #1D4ED8;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.875rem;
+  }
+
+  .data-table thead {
+    background: var(--clinic-elevated);
+    color: var(--clinic-ink);
+  }
+
+  .data-table th,
+  .data-table td {
+    border-bottom: 1px solid var(--clinic-line);
   }
 }
