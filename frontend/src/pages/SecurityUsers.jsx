@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Fingerprint, KeyRound, Loader2, RefreshCcw, Save, ShieldCheck, ToggleLeft, ToggleRight, UserCheck, UserPlus, UserX, UsersRound } from 'lucide-react';
+import { CheckCircle2, Fingerprint, KeyRound, Loader2, RefreshCcw, Save, ShieldCheck, UserCheck, UserPlus, UserX, UsersRound } from 'lucide-react';
 import api from '../api/client';
 import SectionPanel from '../components/SectionPanel';
 
@@ -309,14 +309,22 @@ function SecurityUsers() {
                       </select>
                       <p className="mt-2 max-w-xs text-xs leading-5 text-clinic-muted">{roleByCode[user.role]?.permissions?.join(', ')}</p>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 whitespace-nowrap">
                       <button
                         type="button"
                         onClick={() => patchUser(user.username, { is_active: !user.is_active }, user.is_active ? 'Usuario desactivado.' : 'Usuario activado.')}
-                        className={`btn btn-outline btn-sm ${user.is_active ? 'btn-success' : 'btn-error'}`}
+                        className={`inline-flex h-9 min-w-[7rem] items-center justify-center gap-2 rounded-full border px-3 text-xs font-bold transition hover:-translate-y-0.5 disabled:opacity-60 ${
+                          user.is_active
+                            ? 'border-success/30 bg-success/10 text-success hover:bg-success/15'
+                            : 'border-error/30 bg-error/10 text-error hover:bg-error/15'
+                        }`}
+                        title={user.is_active ? 'Desactivar usuario' : 'Activar usuario'}
+                        disabled={busy}
                       >
-                        {user.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-                        {user.is_active ? 'Activo' : 'Inactivo'}
+                        <span className={`relative h-4 w-7 rounded-full transition ${user.is_active ? 'bg-success' : 'bg-error'}`} aria-hidden="true">
+                          <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-base-100 shadow-sm transition ${user.is_active ? 'left-3.5' : 'left-0.5'}`} />
+                        </span>
+                        <span>{user.is_active ? 'Activo' : 'Inactivo'}</span>
                       </button>
                     </td>
                     <td className="px-5 py-4 text-clinic-muted">{formatDate(user.last_login_at)}</td>

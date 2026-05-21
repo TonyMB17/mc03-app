@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, BarChart3, Baby, ChevronDown, DatabaseZap, Layers3, LogOut, PanelLeftClose, PanelLeftOpen, Search, Settings2, ShieldCheck, SlidersHorizontal, UserCheck, UsersRound } from 'lucide-react';
+import { Activity, BarChart3, DatabaseZap, Layers3, LogOut, PanelLeftClose, PanelLeftOpen, Search, ShieldCheck, SlidersHorizontal, UserCheck, UsersRound } from 'lucide-react';
 import api, { clearAuth, loadStoredAuth, saveAuthUser, setAuthToken } from './api/client';
 import IndicatorNavItem from './components/IndicatorNavItem';
 import ModuleTab from './components/ModuleTab';
@@ -12,6 +12,7 @@ import DataUploadView from './pages/DataUploadView';
 import LoginView from './LoginView';
 import SearchDNI from './pages/RecordSearch';
 import SecurityUsers from './pages/SecurityUsers';
+import usiLogoIcon from './assets/usi-logo-isotipo.svg';
 
 const views = {
   search: {
@@ -66,6 +67,7 @@ function App() {
   const currentView = views[safeActiveView];
   const CurrentIcon = currentView.icon;
   const activeFilterLabel = selectedProvince === ALL_PROVINCES ? 'Todos los datos' : selectedProvince;
+  const activeScopeLabel = selectedProvince === 'ABANCAY' ? 'RS Abancay' : activeFilterLabel;
   const drawerWidth = sidebarCollapsed ? '5rem' : '18rem';
 
   useEffect(() => {
@@ -119,6 +121,21 @@ function App() {
     }
   };
 
+  const handleSidebarIndicatorClick = (indicator) => {
+    if (indicator.code !== 'si02') {
+      handleIndicatorChange(indicator.code);
+      return;
+    }
+
+    if (selectedIndicator !== 'si02') {
+      handleIndicatorChange('si02');
+      setSi02AccordionOpen(true);
+      return;
+    }
+
+    setSi02AccordionOpen((current) => !current);
+  };
+
   const handleLogin = (nextUser) => {
     setUser(nextUser);
     setAuthStatus('ready');
@@ -147,13 +164,13 @@ function App() {
   return (
     <div data-theme="usiTheme" className="app-shell min-h-screen bg-base-200">
       <aside
-        className="fixed inset-y-0 left-0 z-50 flex flex-col border-r border-clinic-line bg-base-100 shadow-soft transition-[width] duration-200"
+        className="fixed inset-y-0 left-0 z-50 flex flex-col overflow-x-hidden border-r border-clinic-line bg-base-100 shadow-soft transition-[width] duration-200"
         style={{ width: drawerWidth }}
       >
-        <div className={`flex min-h-16 items-center border-b border-clinic-line px-3 ${sidebarCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
+        <div className={`border-b border-clinic-line px-3 ${sidebarCollapsed ? 'flex min-h-24 flex-col items-center justify-center gap-2' : 'flex min-h-16 items-center justify-between gap-3'}`}>
           <div className={`flex min-w-0 items-center gap-3 ${sidebarCollapsed ? 'hidden' : ''}`}>
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary text-primary-content shadow-sm">
-              <ShieldCheck className="h-5 w-5" />
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-base-300 bg-base-100 p-1.5 shadow-sm">
+              <img src={usiLogoIcon} alt="USI" className="h-full w-full object-contain" />
             </span>
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase text-clinic-muted">Red de Salud</p>
@@ -161,36 +178,21 @@ function App() {
             </div>
           </div>
           {sidebarCollapsed && (
-            <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-content shadow-sm">
-              <ShieldCheck className="h-5 w-5" />
+            <span className="grid h-11 w-11 place-items-center rounded-xl border border-base-300 bg-base-100 p-1.5 shadow-sm">
+              <img src={usiLogoIcon} alt="USI" className="h-full w-full object-contain" />
             </span>
           )}
           <button
             type="button"
             onClick={() => setSidebarCollapsed((current) => !current)}
-            className={`${sidebarCollapsed ? 'absolute right-2 top-3' : ''} btn btn-square btn-ghost h-9 min-h-9 w-9 rounded-md border border-base-300 bg-base-100 text-base-content/60 hover:border-secondary hover:bg-base-200 hover:text-secondary`}
+            className="btn btn-square btn-ghost h-9 min-h-9 w-9 rounded-md border border-base-300 bg-base-100 text-base-content/60 hover:border-secondary hover:bg-base-200 hover:text-secondary"
             aria-label={sidebarCollapsed ? 'Expandir sidebar' : 'Minimizar sidebar'}
           >
             {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          <div className={`mb-4 rounded-lg border border-base-300 bg-base-200 p-3 ${sidebarCollapsed ? 'px-2' : ''}`}>
-            <div className={`flex items-start gap-3 ${sidebarCollapsed ? 'justify-center' : ''}`}>
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-secondary/10 text-secondary ring-1 ring-secondary/20">
-                <Baby className="h-5 w-5" />
-              </span>
-              {!sidebarCollapsed && (
-                <div>
-                  <p className="text-xs font-bold uppercase text-clinic-muted">Indicador activo</p>
-                  <p className="mt-1 text-sm font-bold leading-5 text-clinic-ink">{activeIndicator.shortName}</p>
-                  <p className="mt-1 text-xs leading-5 text-clinic-muted">{activeIndicator.description}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <section className="mb-4">
             {!sidebarCollapsed && <p className="mb-2 px-1 text-xs font-bold uppercase text-clinic-muted">Indicadores</p>}
             <div className="grid gap-1">
@@ -199,12 +201,12 @@ function App() {
                 const active = selectedIndicator === indicator.code;
                 return (
                   <div key={indicator.code}>
-                    <div className="flex items-stretch gap-1">
+                    <div className="flex items-stretch">
                       {sidebarCollapsed ? (
                         <button
                           type="button"
                           title={indicator.title}
-                          onClick={() => handleIndicatorChange(indicator.code)}
+                          onClick={() => handleSidebarIndicatorClick(indicator)}
                           className={`grid h-10 w-full place-items-center rounded-md border text-sm font-bold transition ${
                             active
                               ? 'border-primary bg-primary text-primary-content'
@@ -214,21 +216,13 @@ function App() {
                           {indicator.shortName.replace('-', '')}
                         </button>
                       ) : (
-                        <IndicatorNavItem active={active} indicator={indicator} onClick={() => handleIndicatorChange(indicator.code)} />
-                      )}
-                      {isSi02 && !sidebarCollapsed && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSi02AccordionOpen((current) => !current);
-                            if (!active) handleIndicatorChange('si02');
-                          }}
-                          className="grid w-10 shrink-0 place-items-center rounded-md border border-base-300 text-base-content/60 transition hover:border-secondary hover:bg-base-200 hover:text-secondary"
-                          aria-label="Ver subindicadores SI-02"
-                          aria-expanded={si02AccordionOpen}
-                        >
-                          <ChevronDown className={`h-4 w-4 transition ${si02AccordionOpen ? 'rotate-180' : ''}`} />
-                        </button>
+                        <IndicatorNavItem
+                          active={active}
+                          indicator={indicator}
+                          expandable={isSi02}
+                          expanded={si02AccordionOpen}
+                          onClick={() => handleSidebarIndicatorClick(indicator)}
+                        />
                       )}
                     </div>
                     {isSi02 && si02AccordionOpen && !sidebarCollapsed && (
@@ -270,7 +264,7 @@ function App() {
 
           {!sidebarCollapsed && (
             <div className="rounded-lg border border-base-300 bg-base-200 p-3 text-xs leading-5 text-clinic-muted">
-              Los modulos principales estan fijados arriba para mantenerlos accesibles mientras navegas indicadores.
+              Selecciona un indicador para actualizar las vistas de busqueda, tablero y carga de datos.
             </div>
           )}
         </div>
@@ -291,32 +285,46 @@ function App() {
       </aside>
 
       <header
-        className="fixed right-0 top-0 z-40 border-b border-primary/40 bg-primary text-primary-content shadow-soft transition-[left] duration-200"
+        className="fixed right-0 top-0 z-40 border-b border-primary/30 bg-primary text-primary-content shadow-soft transition-[left] duration-200"
         style={{ left: drawerWidth }}
       >
-        <div className="mx-auto grid max-w-[92rem] gap-3 px-4 py-3 sm:px-6">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
+        <div className="mx-auto flex min-h-[7.25rem] max-w-[92rem] flex-col justify-center gap-3 px-4 py-3 sm:px-6 lg:min-h-[6.5rem] lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 max-w-4xl">
+            <div className="flex items-center gap-3">
+              <span className="hidden h-11 w-1 rounded-full bg-secondary sm:block" />
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase text-primary-content/70">Plataforma de indicadores</p>
-                <h1 className="truncate text-lg font-bold text-primary-content sm:text-xl">{activeIndicator.title}</h1>
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary-content/68">Plataforma de indicadores</p>
+                <h1 className="truncate text-xl font-bold leading-tight text-primary-content sm:text-2xl">{activeIndicator.title}</h1>
+                <p className="mt-1 max-w-3xl text-sm leading-5 text-primary-content/76">{activeIndicator.description}</p>
               </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <TopbarChip icon={Activity} label="Filtro" value={activeFilterLabel} />
-              <TopbarChip icon={Settings2} label="Meta" value={`${targetCoverage}%`} />
-              <TopbarChip icon={UserCheck} label={user.role_label} value={user.display_name} />
-              {user.auth_enabled && (
-                <TopbarChip as="button" type="button" onClick={handleLogout} className="hover:border-secondary hover:bg-secondary/10">
-                  <LogOut className="h-4 w-4 text-secondary" />
-                  <span className="font-bold text-clinic-ink">Salir</span>
-                </TopbarChip>
-              )}
             </div>
           </div>
 
-          <nav className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" aria-label="Modulos principales">
+          <div className="mr-2 flex max-w-full shrink-0 flex-wrap items-center gap-y-1 rounded-xl border border-primary-content/15 bg-primary-content/10 px-4 py-2 lg:mr-4 lg:justify-end">
+            <TopbarChip icon={Activity} label="Ambito" value={activeScopeLabel} />
+            <TopbarChip icon={UserCheck} label={user.role_label} value={user.display_name} />
+            {user.auth_enabled && (
+              <TopbarChip
+                as="button"
+                type="button"
+                onClick={handleLogout}
+                className="ml-2 rounded-md border border-primary-content/25 px-3 hover:bg-primary-content/15"
+              >
+                <LogOut className="h-4 w-4 text-primary-content/75" />
+                <span className="font-bold text-primary-content">Salir</span>
+              </TopbarChip>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="transition-[padding-left] duration-200" style={{ paddingLeft: drawerWidth }}>
+        <main className="mx-auto min-w-0 max-w-[92rem] animate-fade-in px-4 pb-6 pt-40 sm:px-6 lg:pt-32">
+          <nav
+            role="tablist"
+            className="mb-4 flex gap-1 overflow-x-auto rounded-xl border border-base-300 bg-base-100 p-2 shadow-sm"
+            aria-label="Modulos principales"
+          >
             {permissions.includes('search') && (
               <ModuleTab active={safeActiveView === 'search'} icon={Search} onClick={() => setActiveView('search')}>
                 Busqueda DNI
@@ -343,21 +351,11 @@ function App() {
               </ModuleTab>
             )}
           </nav>
-        </div>
-      </header>
 
-      <div className="transition-[padding-left] duration-200" style={{ paddingLeft: drawerWidth }}>
-        <main className="mx-auto min-w-0 max-w-[92rem] animate-fade-in px-4 pb-6 pt-44 sm:px-6 lg:pt-36">
           <PageHeader
             icon={CurrentIcon}
             title={currentView.title}
             description={currentView.description}
-            aside={
-              <p className="inline-flex w-fit items-center gap-2 rounded-md border border-base-300 bg-base-100 px-3 py-2 text-sm font-semibold text-clinic-muted shadow-sm">
-                <Activity className="h-4 w-4 text-secondary" />
-                {activeIndicator.shortName} / {activeFilterLabel}
-              </p>
-            }
           />
           {safeActiveView === 'search' && <SearchDNI selectedProvince={selectedProvince} selectedIndicator={selectedIndicator} />}
           {safeActiveView === 'dashboard' && (
