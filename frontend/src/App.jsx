@@ -9,6 +9,7 @@ import indicators, { indicatorList } from './indicators/registry';
 import ConfigView, { ALL_PROVINCES, DEFAULT_TARGET_COVERAGE } from './pages/ConfigView';
 import Dashboard from './pages/IndicatorDashboard';
 import DataUploadView from './pages/DataUploadView';
+import AutomationView from './pages/AutomationView';
 import LoginView from './LoginView';
 import SearchDNI from './pages/RecordSearch';
 import SecurityUsers from './pages/SecurityUsers';
@@ -38,6 +39,12 @@ const views = {
     description: 'Carga, valida y activa el Excel operativo del indicador seleccionado.',
     icon: DatabaseZap,
     permission: 'data_upload',
+  },
+  automation: {
+    title: 'Automatizacion',
+    description: 'Ejecuta la descarga, validacion y activacion automatica de archivos semanales.',
+    icon: Activity,
+    permission: 'automation',
   },
   users: {
     title: 'Usuarios y permisos',
@@ -262,6 +269,25 @@ function App() {
             </div>
           </section>
 
+          {permissions.includes('automation') && (
+            <section className="mb-4 border-t border-clinic-line pt-4">
+              {!sidebarCollapsed && <p className="mb-2 px-1 text-xs font-bold uppercase text-clinic-muted">Procesos</p>}
+              <button
+                type="button"
+                title="Automatizacion de carga"
+                onClick={() => setActiveView('automation')}
+                className={`flex h-11 w-full items-center gap-3 rounded-md border px-3 text-sm font-bold transition ${
+                  safeActiveView === 'automation'
+                    ? 'border-primary bg-primary text-primary-content shadow-sm'
+                    : 'border-transparent text-clinic-muted hover:border-base-300 hover:bg-base-200 hover:text-clinic-ink'
+                } ${sidebarCollapsed ? 'justify-center px-0' : 'justify-start'}`}
+              >
+                <Activity className={`h-4 w-4 shrink-0 ${safeActiveView === 'automation' ? 'text-primary-content' : 'text-secondary'}`} />
+                {!sidebarCollapsed && <span className="truncate">Automatizacion</span>}
+              </button>
+            </section>
+          )}
+
           {!sidebarCollapsed && (
             <div className="rounded-lg border border-base-300 bg-base-200 p-3 text-xs leading-5 text-clinic-muted">
               Selecciona un indicador para actualizar las vistas de busqueda, tablero y carga de datos.
@@ -384,6 +410,7 @@ function App() {
             />
           )}
           {safeActiveView === 'data' && <DataUploadView selectedIndicator={selectedIndicator} />}
+          {safeActiveView === 'automation' && <AutomationView />}
           {safeActiveView === 'users' && <SecurityUsers />}
         </main>
       </div>

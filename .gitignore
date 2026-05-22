@@ -6,6 +6,7 @@ __pycache__/
 .python-version
 backend/uploads/
 backend/processed_uploads/
+backend/automation_downloads/
 backend/backups/
 backend/logs/
 backend/data_state.json

@@ -492,6 +492,7 @@ def _activate_pending_upload(
             app.state.indicator_data[indicator]["db_upload_id"] = str(db_upload_id)
         if indicator == "mc03":
             _write_data_state(metadata)
+        _cleanup_pending_upload_files(pending)
         app.state.pending_uploads.pop(upload_id, None)
         if job:
             job.update(
@@ -531,6 +532,33 @@ def _delete_file_quietly(path: Path | None) -> None:
             path.unlink()
     except OSError:
         pass
+
+
+def _is_managed_upload_path(path: Path) -> bool:
+    try:
+        resolved = path.resolve()
+    except OSError:
+        return False
+    managed_roots = (UPLOADS_DIR.resolve(), PROCESSED_UPLOADS_DIR.resolve())
+    return any(resolved == root or root in resolved.parents for root in managed_roots)
+
+
+def _cleanup_pending_upload_files(pending: dict | None) -> None:
+    if not pending:
+        return
+
+    paths: set[Path] = set()
+    if pending.get("path"):
+        paths.add(Path(pending["path"]))
+    if pending.get("processed_path"):
+        paths.add(Path(pending["processed_path"]))
+    for item in pending.get("paths") or []:
+        if item:
+            paths.add(Path(item))
+
+    for path in paths:
+        if _is_managed_upload_path(path):
+            _delete_file_quietly(path)
 
 
 def _incumplidos_xlsx(omisos: list[dict]) -> bytes:
@@ -803,9 +831,9 @@ def api_data_upload_preview(
     if preparer:
         prepared = package_preparer(destinations) if package_preparer else preparer(destination)
         validation = prepared["validation"]
+        validation.setdefault("summary", {})["source_preserved"] = False
         if validation["valid"]:
             validation["summary"]["storage_format"] = "processed_package" if package_upload else "processed_dataframe"
-            validation["summary"]["source_preserved"] = False
             validation["summary"]["file_size_bytes"] = sum(path.stat().st_size for path in destinations if path.exists())
             processed_path = PROCESSED_UPLOADS_DIR / f"{timestamp}_{upload_id[:8]}_{indicator}.pkl"
             _write_processed_bundle(
@@ -824,6 +852,7 @@ def api_data_upload_preview(
                 _delete_file_quietly(destination_item)
             raise HTTPException(status_code=400, detail="El indicador seleccionado no tiene preparador multiparchivo")
         validation = definition.validate_data_file(destination)
+        validation.setdefault("summary", {})["source_preserved"] = False
 
     uploaded_at = datetime.now().isoformat(timespec="seconds")
     summary = {
@@ -1014,6 +1043,60 @@ def api_report_incumplidos_xlsx(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="incumplidos_{indicator}{filename_subindicator}{filename_month}.xlsx"'},
     )
+
+
+@app.post("/api/automation/cloud-import/stream", tags=["Automatizacion"])
+def api_automation_cloud_import_stream(
+    activate: bool = Query(True),
+    cleanup: bool = Query(True),
+    insecure: bool = Query(False),
+    _user=Depends(require_permissions("automation")),
+):
+    try:
+        from .automation.pipeline import run_cloud_import_with_logs
+    except ImportError:
+        from automation.pipeline import run_cloud_import_with_logs
+
+    def lines():
+        from queue import Empty, Queue
+        from threading import Thread
+
+        queue: Queue[str | None] = Queue()
+
+        def emit(message: str) -> None:
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            queue.put(f"[{timestamp}] {message}\n")
+
+        def worker() -> None:
+            try:
+                result = run_cloud_import_with_logs(
+                    emit,
+                    activate=activate,
+                    cleanup_after_activation=cleanup,
+                    verify_tls=False if insecure else None,
+                )
+                activated_count = sum(1 for item in result.get("results", []) if item.get("activated"))
+                emit(f"Indicadores activados: {activated_count}.")
+            except Exception as exc:
+                emit(f"ERROR: {exc}")
+            finally:
+                queue.put(None)
+
+        yield f"[{datetime.now().strftime('%H:%M:%S')}] Preparando ejecucion automatizada.\n"
+        thread = Thread(target=worker, daemon=True)
+        thread.start()
+
+        while True:
+            try:
+                item = queue.get(timeout=1)
+            except Empty:
+                yield ""
+                continue
+            if item is None:
+                break
+            yield item
+
+    return StreamingResponse(lines(), media_type="text/plain; charset=utf-8")
 
 
 @app.get("/api/search/dni/{dni}", response_model=SearchDNIResult, tags=["Busqueda"])
