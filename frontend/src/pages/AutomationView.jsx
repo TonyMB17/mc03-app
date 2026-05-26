@@ -84,7 +84,7 @@ function AutomationView() {
             type="button"
             onClick={runAutomation}
             disabled={running}
-            className="btn btn-primary min-w-52 text-primary-content shadow-sm disabled:opacity-60"
+            className="btn btn-primary w-full text-primary-content shadow-sm disabled:opacity-60 sm:w-auto sm:min-w-52"
           >
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : finished ? <CheckCircle2 className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             {running ? 'Ejecutando...' : finished ? 'Ejecutar nuevamente' : 'Ejecutar automatizacion'}
@@ -92,7 +92,7 @@ function AutomationView() {
         </div>
 
         <div className="p-5 lg:p-6">
-          <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="mb-3 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-muted">Consola de ejecucion</p>
             <span className="inline-flex items-center gap-2 rounded-full border border-base-300 bg-base-200 px-3 py-1 text-xs font-bold text-clinic-muted">
               <Trash2 className="h-3.5 w-3.5 text-secondary" />
@@ -102,7 +102,7 @@ function AutomationView() {
 
           <div
             ref={consoleRef}
-            className="h-[28rem] overflow-y-auto rounded-xl border border-primary/20 bg-[#071527] p-4 font-mono text-xs leading-6 shadow-inner"
+            className="h-[20rem] overflow-y-auto rounded-xl border border-primary/20 bg-[#071527] p-4 font-mono text-xs leading-6 shadow-inner sm:h-[28rem]"
           >
             {lines.map((line, index) => (
               <div key={`${index}-${line}`} className={`whitespace-pre-wrap break-words ${consoleLineTone(line)}`}>

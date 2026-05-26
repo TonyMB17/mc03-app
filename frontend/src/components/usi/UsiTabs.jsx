@@ -1,6 +1,6 @@
 function UsiTabs({ tabs, activeTab, onChange, className = '' }) {
   return (
-    <div role="tablist" className={`tabs tabs-lifted font-bold ${className}`.trim()}>
+    <div role="tablist" className={`tabs tabs-lifted overflow-x-auto whitespace-nowrap font-bold ${className}`.trim()}>
       {tabs.map((tab) => (
         <button
           key={tab.value}
