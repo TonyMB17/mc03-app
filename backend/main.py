@@ -56,7 +56,8 @@ try:
         update_user,
         user_response,
     )
-    from .db.session import get_db
+    from .db.retention import cleanup_inactive_uploads
+    from .db.session import SessionLocal, get_db
 except ImportError:
     from schemas import (
         DataActivateRequest,
@@ -96,7 +97,8 @@ except ImportError:
         update_user,
         user_response,
     )
-    from db.session import get_db
+    from db.retention import cleanup_inactive_uploads
+    from db.session import SessionLocal, get_db
 
 app = FastAPI(
     title="Sistema de Seguimiento Neonatal - MC-03",
@@ -490,9 +492,15 @@ def _activate_pending_upload(
         _activate_data_file(filepath, metadata, indicator, prepared_bundle, validation_summary)
         if db_upload_id:
             app.state.indicator_data[indicator]["db_upload_id"] = str(db_upload_id)
+        if _indicator_persister(definition):
+            _cleanup_inactive_uploads_quietly()
         if indicator == "mc03":
-            _write_data_state(metadata)
-        _cleanup_pending_upload_files(pending)
+            state_metadata = dict(metadata)
+            if _indicator_persister(definition):
+                state_metadata["active_file"] = None
+            _write_data_state(state_metadata)
+        if _indicator_persister(definition):
+            _cleanup_pending_upload_files(pending)
         app.state.pending_uploads.pop(upload_id, None)
         if job:
             job.update(
@@ -559,6 +567,14 @@ def _cleanup_pending_upload_files(pending: dict | None) -> None:
     for path in paths:
         if _is_managed_upload_path(path):
             _delete_file_quietly(path)
+
+
+def _cleanup_inactive_uploads_quietly() -> dict | None:
+    try:
+        with SessionLocal() as db:
+            return cleanup_inactive_uploads(db)
+    except Exception:
+        return None
 
 
 def _incumplidos_xlsx(omisos: list[dict]) -> bytes:
@@ -660,6 +676,7 @@ def startup_event():
 
         with SessionLocal() as db:
             ensure_security_defaults(db)
+        _cleanup_inactive_uploads_quietly()
     except Exception:
         # The app can still run in development mode without a reachable DB.
         pass

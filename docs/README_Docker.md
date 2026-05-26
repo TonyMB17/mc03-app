@@ -61,11 +61,13 @@ Los Excel operativos se cargan desde la vista **Carga datos** del sistema. No es
 
 La carpeta local `data_samples/` se monta como solo lectura en `/app/data_samples` para mantener compatibilidad con los archivos de ejemplo durante desarrollo. Esos archivos no se copian dentro de la imagen Docker.
 
-Los archivos subidos y procesados persisten en estos volumenes:
+Los archivos subidos y procesados se alojan temporalmente en estos volumenes:
 
 - `backend_uploads`
 - `backend_processed_uploads`
 - `backend_backups`
+
+`backend_uploads` y `backend_processed_uploads` se mantienen como volumenes para compatibilidad con cargas en curso. Al activar una carga persistida, el backend elimina los archivos temporales/procesados asociados. Las versiones antiguas en PostgreSQL se purgan segun `UPLOAD_RETENTION_DAYS` cuando ya no estan activas.
 
 ## Comandos utiles
 

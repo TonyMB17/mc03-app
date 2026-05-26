@@ -125,8 +125,10 @@ Variables de retencion:
 
 ```env
 BACKUP_RETENTION_DAYS=30
-UPLOAD_RETENTION_DAYS=90
+UPLOAD_RETENTION_DAYS=7
 ```
+
+`UPLOAD_RETENTION_DAYS` controla la limpieza automatica de cargas antiguas en PostgreSQL: una version `superseded` o `failed` se elimina cuando supera ese numero de dias sin ser activa. La version activa nunca se elimina por esta limpieza. Los archivos temporales/procesados de una carga persistida se eliminan al activarla.
 
 Base sugerida:
 

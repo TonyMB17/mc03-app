@@ -309,4 +309,5 @@ python -m backend.db.backup
 
 - Los respaldos se guardan en `backend/backups/`, carpeta excluida de git.
 - Variables documentadas: `PG_DUMP_PATH`, `BACKUP_RETENTION_DAYS` y `UPLOAD_RETENTION_DAYS`.
-- La retencion automatica se aplica a respaldos `.dump`; la limpieza automatica de Excel originales queda como siguiente mejora si se decide conservarlos localmente.
+- La retencion automatica se aplica a respaldos `.dump` y a cargas historicas en PostgreSQL. Las versiones `superseded` o `failed` se eliminan despues de `UPLOAD_RETENTION_DAYS` dias sin estar activas; la version activa nunca se purga por esta regla.
+- Los archivos temporales y procesados de una carga persistida se eliminan al activarla para evitar acumular Excel o paquetes intermedios en disco.

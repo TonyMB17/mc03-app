@@ -14,14 +14,13 @@ import {
   TestTube2,
   Timer,
 } from 'lucide-react';
-import { useState } from 'react';
 import { useDniSearch } from './hooks/useDniSearch';
 import StatusPill from './components/StatusPill';
 import DoseDetails from './components/DoseDetails';
 import HemoglobinDetails from './components/HemoglobinDetails';
 import IronDetails from './components/IronDetails';
 import SectionPanel from './components/SectionPanel';
-import { UsiBadge, UsiCard, UsiTabs } from './components/usi';
+import { UsiBadge, UsiCard } from './components/usi';
 import indicators from './indicators/registry';
 import { formatShortDate } from './utils/dates';
 
@@ -61,6 +60,18 @@ function getInitials(name) {
     .map((part) => part[0])
     .join('');
   return initials || 'US';
+}
+
+function formatIdentifier(value) {
+  const text = value == null ? '' : String(value).trim();
+  return text.replace(/\.0$/, '');
+}
+
+function registeredDoseCount(data = {}) {
+  const explicitCount = Number(data.dosis_registradas ?? 0);
+  const doseCount = Array.isArray(data.dosis) ? data.dosis.filter((dose) => dose.registrada || dose.fecha).length : 0;
+  const hasAttentionDate = Boolean(data.fecha);
+  return Math.max(Number.isFinite(explicitCount) ? explicitCount : 0, doseCount, hasAttentionDate ? 1 : 0);
 }
 
 function DetailMessage({ item }) {
@@ -121,7 +132,7 @@ function PackageStatusBanner({ complete, completeText, incompleteText }) {
   );
 }
 
-function PatientSummaryCard({ result, tabs, activeTab, onTabChange }) {
+function PatientSummaryCard({ result, metrics }) {
   const fullName = getFullName(result.personal);
   const identifier = result.personal.afi_DNI || result.personal.NumCNV || '-';
 
@@ -155,7 +166,7 @@ function PatientSummaryCard({ result, tabs, activeTab, onTabChange }) {
           <InfoItem icon={Hospital} label="Establecimiento" value={result.personal.Des_EESS || 'Sin establecimiento'} />
           <InfoItem icon={ClipboardList} label="Provincia / Microred" value={`${result.personal.Desc_prov || '-'} / ${result.personal.Des_MicroRed || '-'}`} />
           <InfoItem icon={IdCard} label="CNV" value={result.personal.NumCNV} />
-          <InfoItem icon={Hospital} label="RENAES" value={result.personal.pre_CodigoRENAES} />
+          <InfoItem icon={Hospital} label="RENAES" value={formatIdentifier(result.personal.pre_CodigoRENAES)} />
           <InfoItem
             icon={Timer}
             label="Peso / EG"
@@ -164,21 +175,12 @@ function PatientSummaryCard({ result, tabs, activeTab, onTabChange }) {
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => onTabChange(tab.value)}
-              className={`rounded-xl border px-3 py-2 text-left transition-all ${
-                activeTab === tab.value
-                  ? 'border-primary bg-base-200 ring-2 ring-primary/20'
-                  : 'border-base-300 bg-base-100 hover:border-secondary'
-              }`}
-            >
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-base-content/55">{tab.kicker}</p>
-              <p className={`mt-0.5 text-lg font-black ${tab.toneClass ?? 'text-primary'}`}>{tab.metric}</p>
-              <p className="mt-1 text-[0.68rem] font-bold text-base-content/55">{tab.label}</p>
-            </button>
+          {metrics.map((item) => (
+            <div key={item.value} className="rounded-xl border border-base-300 bg-base-100 px-3 py-2 text-left">
+              <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-base-content/55">{item.kicker}</p>
+              <p className={`mt-0.5 text-lg font-black ${item.toneClass ?? 'text-primary'}`}>{item.metric}</p>
+              <p className="mt-1 text-[0.68rem] font-bold text-base-content/55">{item.label}</p>
+            </div>
           ))}
         </div>
       </div>
@@ -250,9 +252,7 @@ function SearchDNI({
   selectedProvince,
   selectedIndicator,
   selectedSi02Subindicator = 'all',
-  onSi02SubindicatorChange,
 }) {
-  const [activeClinicalTab, setActiveClinicalTab] = useState('components');
   const { dni, setDni, result, error, loading, search } = useDniSearch(
     selectedProvince,
     selectedIndicator,
@@ -261,8 +261,7 @@ function SearchDNI({
 
   const isMc02 = selectedIndicator === 'mc02';
   const isSi02 = selectedIndicator === 'si02';
-  const si02Subindicators = indicators.si02.subindicators ?? [];
-  const selectedSubindicatorInfo = si02Subindicators.find((item) => item.code === selectedSi02Subindicator);
+  const selectedSubindicatorInfo = (indicators.si02.subindicators ?? []).find((item) => item.code === selectedSi02Subindicator);
   const searchLabel = isMc02 || isSi02 ? 'DNI o CNV del niño' : 'DNI del recien nacido';
   const packageTitle = isMc02
     ? 'Paquete integrado MC-02'
@@ -286,11 +285,10 @@ function SearchDNI({
       ? 'El subindicador consultado requiere seguimiento'
       : 'Tiene subindicadores con observaciones'
     : 'Paquete incompleto, requiere intervencion';
-  const packageTabValue = isSi02 ? 'subindicators' : 'components';
-  const clinicalTabs = result
+  const clinicalMetrics = result
     ? [
         {
-          value: packageTabValue,
+          value: isSi02 ? 'subindicators' : 'components',
           label: isSi02 ? 'Subindicadores' : 'Componentes',
           kicker: isSi02 ? 'SI-02' : 'Paquete',
           metric: isSi02 ? result.subindicators?.length ?? 0 : Object.keys(result.vacunas ?? {}).length,
@@ -327,9 +325,6 @@ function SearchDNI({
           : []),
       ]
     : [];
-  const currentClinicalTab = clinicalTabs.some((tab) => tab.value === activeClinicalTab)
-    ? activeClinicalTab
-    : clinicalTabs[0]?.value;
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -341,42 +336,6 @@ function SearchDNI({
       <SectionPanel className="p-5 lg:p-6">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
           <div className="space-y-4">
-            {isSi02 && (
-              <div className="rounded-xl border border-base-300 bg-base-200 p-2">
-                <p className="px-2 pb-2 text-xs font-bold uppercase tracking-[0.16em] text-clinic-muted">
-                  Buscar en subindicador
-                </p>
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  <button
-                    type="button"
-                    onClick={() => onSi02SubindicatorChange?.('all')}
-                    className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-bold transition ${
-                      selectedSi02Subindicator === 'all'
-                        ? 'border-primary bg-primary text-primary-content shadow-sm'
-                        : 'border-base-300 bg-base-100 text-clinic-muted hover:border-secondary hover:text-primary'
-                    }`}
-                  >
-                    Global SI-02
-                  </button>
-                  {si02Subindicators.map((subindicator) => (
-                    <button
-                      key={subindicator.code}
-                      type="button"
-                      onClick={() => onSi02SubindicatorChange?.(subindicator.code)}
-                      className={`shrink-0 rounded-lg border px-3 py-2 text-left transition ${
-                        selectedSi02Subindicator === subindicator.code
-                          ? 'border-primary bg-primary text-primary-content shadow-sm'
-                          : 'border-base-300 bg-base-100 text-clinic-muted hover:border-secondary hover:text-primary'
-                      }`}
-                    >
-                      <span className="block text-xs font-black">{subindicator.officialCode}</span>
-                      <span className="mt-0.5 block max-w-40 truncate text-[0.68rem] font-semibold">{subindicator.title}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <form onSubmit={handleSearchSubmit} className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
               <div>
                 <label htmlFor="dni" className="text-sm font-bold uppercase tracking-[0.16em] text-clinic-muted">
@@ -430,9 +389,7 @@ function SearchDNI({
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
             <PatientSummaryCard
               result={result}
-              tabs={clinicalTabs}
-              activeTab={currentClinicalTab}
-              onTabChange={setActiveClinicalTab}
+              metrics={clinicalMetrics}
             />
             <PackageStatusBanner
               complete={result.paquete_completo}
@@ -443,13 +400,10 @@ function SearchDNI({
 
           <section>
             <SectionPanel className="p-5">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <SectionTitle icon={packageIcon} title={packageTitle} />
-                <UsiTabs tabs={clinicalTabs} activeTab={currentClinicalTab} onChange={setActiveClinicalTab} />
-              </div>
+              <SectionTitle icon={packageIcon} title={packageTitle} />
 
-              <div className="mt-5">
-                {currentClinicalTab === 'alerts' && (
+              <div className="mt-5 space-y-5">
+                {result.clinical_alerts?.length > 0 && (
                   <article className="rounded-xl border border-warning/30 bg-warning/10 p-5 text-warning">
                     <h3 className="inline-flex items-center gap-2 text-lg font-bold text-primary">
                       <AlertTriangle className="h-5 w-5 text-warning" />
@@ -463,7 +417,7 @@ function SearchDNI({
                   </article>
                 )}
 
-                {currentClinicalTab === 'subindicators' && (
+                {isSi02 && (
                   <div className="space-y-4">
                     {(result.subindicators ?? []).map((section) => (
                       <section key={section.subindicator_code} className="rounded-xl border border-base-300 bg-base-100 p-4">
@@ -486,14 +440,13 @@ function SearchDNI({
                   </div>
                 )}
 
-                {currentClinicalTab === 'components' && (
+                {!isSi02 && result.vacunas && (
                   <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
                     {Object.entries(result.vacunas).map(([vacuna, data]) => {
                       const label = componentLabels[vacuna] ?? vacuna;
                       const isHemoglobin = isMc02 && vacuna === 'hemoglobina';
                       const isIron = isMc02 && vacuna.startsWith('hierro_');
-                      const registeredDoseCount =
-                        data.dosis_registradas ?? data.dosis?.filter((dose) => dose.registrada).length ?? 0;
+                      const vaccineDoseCount = registeredDoseCount(data);
                       const hasIronDelivery = isIron && Boolean(data.fecha);
                       const deliveryCount = data.entregas?.length || (hasIronDelivery ? 1 : 0);
                       const hasAnemiaAlert = Boolean(result.clinical_alerts?.length);
@@ -513,7 +466,7 @@ function SearchDNI({
                               <p className="font-bold text-primary">{label}</p>
                               <p className="text-sm text-clinic-muted">Codigo: {displayCode}</p>
                               {!isHemoglobin && !isIron && (
-                                <p className="text-sm text-clinic-muted">Dosis registradas: {registeredDoseCount}</p>
+                                <p className="text-sm text-clinic-muted">Dosis registradas: {vaccineDoseCount}</p>
                               )}
                               {isIron && <p className="text-sm text-clinic-muted">Entregas registradas: {deliveryCount}</p>}
                               <p className="text-sm text-clinic-muted">
@@ -551,36 +504,41 @@ function SearchDNI({
                   </div>
                 )}
 
-                {currentClinicalTab === 'cred' && (
-                  <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                    {result.cred_controls.map((cred) => (
-                      <div key={cred.numero} className="rounded-xl border border-base-300 bg-base-100 p-4 transition hover:-translate-y-0.5 hover:border-secondary hover:shadow-soft">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-bold text-primary">CRED {cred.numero}</p>
-                            <p className="mt-2 text-sm text-clinic-muted">Fecha: {formatDate(cred.fecha)}</p>
-                            <p className="text-sm text-clinic-muted">Edad: {cred.edad_atencion_dias ?? '-'} dias</p>
+                {!isMc02 && !isSi02 && result.cred_controls?.length > 0 && (
+                  <section className="space-y-3">
+                    <SectionTitle icon={ClipboardList} title="Controles CRED" />
+                    <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                      {result.cred_controls.map((cred) => (
+                        <div key={cred.numero} className="rounded-xl border border-base-300 bg-base-100 p-4 transition hover:-translate-y-0.5 hover:border-secondary hover:shadow-soft">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-bold text-primary">CRED {cred.numero}</p>
+                              <p className="mt-2 text-sm text-clinic-muted">Fecha: {formatDate(cred.fecha)}</p>
+                              <p className="text-sm text-clinic-muted">Edad: {cred.edad_atencion_dias ?? '-'} dias</p>
+                            </div>
+                            <StatusPill estado={cred.estado} />
                           </div>
-                          <StatusPill estado={cred.estado} />
+                          <DetailMessage item={cred} />
                         </div>
-                        <DetailMessage item={cred} />
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  </section>
                 )}
 
-                {currentClinicalTab === 'tamizaje' && (
-                  <div className="rounded-xl border border-base-300 bg-base-100 p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <SectionTitle icon={TestTube2} title="Tamizaje neonatal" />
-                        <p className="mt-4 text-sm text-clinic-muted">Fecha: {formatDate(result.tamizaje.fecha)}</p>
-                        <p className="text-sm text-clinic-muted">Edad: {result.tamizaje.edad_atencion_dias ?? '-'} dias</p>
+                {!isMc02 && !isSi02 && result.tamizaje && (
+                  <section className="space-y-3">
+                    <SectionTitle icon={TestTube2} title="Tamizaje neonatal" />
+                    <div className="rounded-xl border border-base-300 bg-base-100 p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm text-clinic-muted">Fecha: {formatDate(result.tamizaje.fecha)}</p>
+                          <p className="text-sm text-clinic-muted">Edad: {result.tamizaje.edad_atencion_dias ?? '-'} dias</p>
+                        </div>
+                        <StatusPill estado={result.tamizaje.estado} />
                       </div>
-                      <StatusPill estado={result.tamizaje.estado} />
+                      <DetailMessage item={result.tamizaje} />
                     </div>
-                    <DetailMessage item={result.tamizaje} />
-                  </div>
+                  </section>
                 )}
               </div>
             </SectionPanel>

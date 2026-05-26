@@ -1,5 +1,6 @@
 """Shared parsing and normalization helpers for MC-03."""
 
+import re
 from datetime import date, datetime
 from typing import Any
 
@@ -28,6 +29,10 @@ def clean_text(value: Any) -> str:
     if value is None or pd.isna(value):
         return ""
     return str(value).strip()
+
+
+def clean_identifier(value: Any) -> str:
+    return re.sub(r"\.0$", "", clean_text(value))
 
 
 def to_number(value: Any) -> float | None:
