@@ -41,7 +41,7 @@ ROLE_LABELS = {
 ROLE_PERMISSIONS = {
     ROLE_CLINICAL: ["search"],
     ROLE_SUPERVISOR: ["search", "dashboard", "downloads"],
-    ROLE_ADMIN: ["search", "dashboard", "downloads", "config", "data_upload", "users_admin"],
+    ROLE_ADMIN: ["search", "dashboard", "downloads", "config", "data_upload", "automation", "users_admin"],
 }
 PERMISSION_LABELS = {
     "search": "Busqueda por DNI/CNV",
@@ -49,6 +49,7 @@ PERMISSION_LABELS = {
     "downloads": "Descargas",
     "config": "Configuracion",
     "data_upload": "Carga de datos",
+    "automation": "Automatizacion de cargas",
     "users_admin": "Administracion de usuarios",
 }
 

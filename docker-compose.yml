@@ -30,7 +30,7 @@ services:
       AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:-change-this-secret-before-production}
       AUTH_TOKEN_TTL_MINUTES: ${AUTH_TOKEN_TTL_MINUTES:-480}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
-      UPLOAD_RETENTION_DAYS: ${UPLOAD_RETENTION_DAYS:-90}
+      UPLOAD_RETENTION_DAYS: ${UPLOAD_RETENTION_DAYS:-7}
     depends_on:
       db:
         condition: service_healthy

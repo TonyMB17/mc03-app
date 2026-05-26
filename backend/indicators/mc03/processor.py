@@ -25,6 +25,7 @@ from .cred import cred_detail, valid_cred
 from .denominator import is_in_denominator
 from .screening import tamizaje_detail, valid_tamizaje
 from .utils import (
+    clean_identifier,
     clean_text,
     coverage_semaphore,
     normalize_filter,
@@ -254,7 +255,7 @@ def _omiso_from_row(row: pd.Series, reasons: list[str]) -> dict[str, Any]:
         "afi_apmaterno": clean_text(safe_row_value(row, "afi_apmaterno")) or None,
         "Desc_prov": clean_text(safe_row_value(row, "Desc_prov")) or None,
         "Des_MicroRed": clean_text(safe_row_value(row, "Des_MicroRed")) or None,
-        "pre_CodigoRENAES": clean_text(safe_row_value(row, "pre_CodigoRENAES")) or None,
+        "pre_CodigoRENAES": clean_identifier(safe_row_value(row, "pre_CodigoRENAES")) or None,
         "Des_EESS": clean_text(safe_row_value(row, "Des_EESS")) or None,
         "reason": "; ".join(reasons),
     }
@@ -345,7 +346,7 @@ def search_by_dni(
         "edadGEst": to_int(row.get("edadGEst")),
         "Desc_prov": clean_text(row.get("Desc_prov")) or None,
         "Des_MicroRed": clean_text(row.get("Des_MicroRed")) or None,
-        "pre_CodigoRENAES": clean_text(row.get("pre_CodigoRENAES")) or None,
+        "pre_CodigoRENAES": clean_identifier(row.get("pre_CodigoRENAES")) or None,
         "Des_EESS": clean_text(row.get("Des_EESS")) or None,
     }
 
@@ -373,6 +374,8 @@ def search_by_dni(
                 "fecha": clean_text(row.get("fec1_BCG")) or None,
                 "resultado": clean_text(row.get("resul1_BCG")) or None,
                 "edad_atencion_dias": to_int(row.get("Edad_ate1_BCG")),
+                "dosis_registradas": 1 if clean_text(row.get("fec1_BCG")) else 0,
+                "dosis_evaluadas": 1,
                 "cumple": package["checks"]["bcg"],
                 "estado": package["details"]["bcg"]["estado"],
                 "mensaje": package["details"]["bcg"]["mensaje"],
@@ -384,6 +387,8 @@ def search_by_dni(
                 "fecha": clean_text(row.get("fecHVB")) or None,
                 "resultado": clean_text(row.get("resulHVB")) or None,
                 "edad_atencion_dias": to_int(row.get("Edad_ateHVB")),
+                "dosis_registradas": 1 if clean_text(row.get("fecHVB")) else 0,
+                "dosis_evaluadas": 1,
                 "cumple": package["checks"]["hvb"],
                 "estado": package["details"]["hvb"]["estado"],
                 "mensaje": package["details"]["hvb"]["mensaje"],

@@ -18,6 +18,7 @@ frontend/dist/
 
 backend/uploads/
 backend/processed_uploads/
+backend/automation_downloads/
 backend/backups/
 backend/logs/
 backend/data_state.json

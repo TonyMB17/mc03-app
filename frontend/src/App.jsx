@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, BarChart3, DatabaseZap, Layers3, LogOut, PanelLeftClose, PanelLeftOpen, Search, ShieldCheck, SlidersHorizontal, UserCheck, UsersRound } from 'lucide-react';
+import { Activity, BarChart3, DatabaseZap, LogOut, PanelLeftClose, PanelLeftOpen, Search, ShieldCheck, SlidersHorizontal, UserCheck, UsersRound } from 'lucide-react';
 import api, { clearAuth, loadStoredAuth, saveAuthUser, setAuthToken } from './api/client';
 import IndicatorNavItem from './components/IndicatorNavItem';
 import ModuleTab from './components/ModuleTab';
@@ -9,6 +9,7 @@ import indicators, { indicatorList } from './indicators/registry';
 import ConfigView, { ALL_PROVINCES, DEFAULT_TARGET_COVERAGE } from './pages/ConfigView';
 import Dashboard from './pages/IndicatorDashboard';
 import DataUploadView from './pages/DataUploadView';
+import AutomationView from './pages/AutomationView';
 import LoginView from './LoginView';
 import SearchDNI from './pages/RecordSearch';
 import SecurityUsers from './pages/SecurityUsers';
@@ -39,6 +40,12 @@ const views = {
     icon: DatabaseZap,
     permission: 'data_upload',
   },
+  automation: {
+    title: 'Automatizacion',
+    description: 'Ejecuta la descarga, validacion y activacion automatica de archivos semanales.',
+    icon: Activity,
+    permission: 'automation',
+  },
   users: {
     title: 'Usuarios y permisos',
     description: 'Administra accesos, roles y permisos de la plataforma.',
@@ -59,11 +66,16 @@ function App() {
   const [user, setUser] = useState(() => loadStoredAuth().user);
   const activeIndicator = indicators[selectedIndicator];
   const permissions = user?.permissions ?? [];
+  const isSi02Global = selectedIndicator === 'si02' && selectedSi02Subindicator === 'all';
   const allowedViewKeys = useMemo(
     () => Object.keys(views).filter((key) => permissions.includes(views[key].permission)),
     [permissions],
   );
-  const safeActiveView = allowedViewKeys.includes(activeView) ? activeView : (allowedViewKeys[0] ?? 'search');
+  const visibleViewKeys = useMemo(
+    () => (isSi02Global ? allowedViewKeys.filter((key) => key === 'dashboard') : allowedViewKeys),
+    [allowedViewKeys, isSi02Global],
+  );
+  const safeActiveView = visibleViewKeys.includes(activeView) ? activeView : (visibleViewKeys[0] ?? 'dashboard');
   const currentView = views[safeActiveView];
   const CurrentIcon = currentView.icon;
   const activeFilterLabel = selectedProvince === ALL_PROVINCES ? 'Todos los datos' : selectedProvince;
@@ -98,11 +110,11 @@ function App() {
 
   useEffect(() => {
     if (authStatus !== 'ready') return;
-    if (!allowedViewKeys.length) return;
-    if (!allowedViewKeys.includes(activeView)) {
-      setActiveView(allowedViewKeys[0]);
+    if (!visibleViewKeys.length) return;
+    if (!visibleViewKeys.includes(activeView)) {
+      setActiveView(visibleViewKeys[0]);
     }
-  }, [activeView, allowedViewKeys, authStatus]);
+  }, [activeView, authStatus, visibleViewKeys]);
 
   const handleIndicatorChange = (nextIndicator) => {
     setSelectedIndicator(nextIndicator);
@@ -127,14 +139,14 @@ function App() {
       return;
     }
 
-    if (selectedIndicator !== 'si02') {
-      handleIndicatorChange('si02');
-      setSi02AccordionOpen(true);
-      return;
+    handleIndicatorChange('si02');
+    setSi02AccordionOpen(true);
+    if (permissions.includes('dashboard')) {
+      setActiveView('dashboard');
     }
-
-    setSi02AccordionOpen((current) => !current);
   };
+
+  const showModuleTab = (viewKey) => visibleViewKeys.includes(viewKey);
 
   const handleLogin = (nextUser) => {
     setUser(nextUser);
@@ -227,18 +239,6 @@ function App() {
                     </div>
                     {isSi02 && si02AccordionOpen && !sidebarCollapsed && (
                       <div className="ml-3 mt-1 grid gap-1 border-l border-clinic-line pl-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSi02SubindicatorChange('all')}
-                          className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-bold transition ${
-                            selectedIndicator === 'si02' && selectedSi02Subindicator === 'all'
-                              ? 'bg-primary text-primary-content'
-                              : 'text-clinic-muted hover:bg-base-200 hover:text-clinic-ink'
-                          }`}
-                        >
-                          <Layers3 className="h-3.5 w-3.5 text-secondary" />
-                          Global SI-02
-                        </button>
                         {(indicator.subindicators ?? []).map((subindicator) => (
                           <button
                             key={subindicator.code}
@@ -261,6 +261,25 @@ function App() {
               })}
             </div>
           </section>
+
+          {permissions.includes('automation') && (
+            <section className="mb-4 border-t border-clinic-line pt-4">
+              {!sidebarCollapsed && <p className="mb-2 px-1 text-xs font-bold uppercase text-clinic-muted">Procesos</p>}
+              <button
+                type="button"
+                title="Automatizacion de carga"
+                onClick={() => setActiveView('automation')}
+                className={`flex h-11 w-full items-center gap-3 rounded-md border px-3 text-sm font-bold transition ${
+                  safeActiveView === 'automation'
+                    ? 'border-primary bg-primary text-primary-content shadow-sm'
+                    : 'border-transparent text-clinic-muted hover:border-base-300 hover:bg-base-200 hover:text-clinic-ink'
+                } ${sidebarCollapsed ? 'justify-center px-0' : 'justify-start'}`}
+              >
+                <Activity className={`h-4 w-4 shrink-0 ${safeActiveView === 'automation' ? 'text-primary-content' : 'text-secondary'}`} />
+                {!sidebarCollapsed && <span className="truncate">Automatizacion</span>}
+              </button>
+            </section>
+          )}
 
           {!sidebarCollapsed && (
             <div className="rounded-lg border border-base-300 bg-base-200 p-3 text-xs leading-5 text-clinic-muted">
@@ -325,27 +344,27 @@ function App() {
             className="mb-4 flex gap-1 overflow-x-auto rounded-xl border border-base-300 bg-base-100 p-2 shadow-sm"
             aria-label="Modulos principales"
           >
-            {permissions.includes('search') && (
+            {showModuleTab('search') && (
               <ModuleTab active={safeActiveView === 'search'} icon={Search} onClick={() => setActiveView('search')}>
                 Busqueda DNI
               </ModuleTab>
             )}
-            {permissions.includes('dashboard') && (
+            {showModuleTab('dashboard') && (
               <ModuleTab active={safeActiveView === 'dashboard'} icon={BarChart3} onClick={() => setActiveView('dashboard')}>
                 Dashboard
               </ModuleTab>
             )}
-            {permissions.includes('config') && (
+            {showModuleTab('config') && (
               <ModuleTab active={safeActiveView === 'config'} icon={SlidersHorizontal} onClick={() => setActiveView('config')}>
                 Configuracion
               </ModuleTab>
             )}
-            {permissions.includes('data_upload') && (
+            {showModuleTab('data') && (
               <ModuleTab active={safeActiveView === 'data'} icon={DatabaseZap} onClick={() => setActiveView('data')}>
                 Carga datos
               </ModuleTab>
             )}
-            {permissions.includes('users_admin') && (
+            {showModuleTab('users') && (
               <ModuleTab active={safeActiveView === 'users'} icon={UsersRound} onClick={() => setActiveView('users')}>
                 Usuarios
               </ModuleTab>
@@ -362,7 +381,6 @@ function App() {
               selectedProvince={selectedProvince}
               selectedIndicator={selectedIndicator}
               selectedSi02Subindicator={selectedSi02Subindicator}
-              onSi02SubindicatorChange={setSelectedSi02Subindicator}
             />
           )}
           {safeActiveView === 'dashboard' && (
@@ -371,7 +389,6 @@ function App() {
               targetCoverage={targetCoverage}
               selectedIndicator={selectedIndicator}
               selectedSi02Subindicator={selectedSi02Subindicator}
-              onSi02SubindicatorChange={setSelectedSi02Subindicator}
             />
           )}
           {safeActiveView === 'config' && (
@@ -384,6 +401,7 @@ function App() {
             />
           )}
           {safeActiveView === 'data' && <DataUploadView selectedIndicator={selectedIndicator} />}
+          {safeActiveView === 'automation' && <AutomationView />}
           {safeActiveView === 'users' && <SecurityUsers />}
         </main>
       </div>

@@ -46,7 +46,7 @@ from .config import (
 )
 from .denominator import is_in_denominator
 from .processor import build_report_summary, evaluate_package
-from .utils import clean_text, coverage_semaphore, parse_month_key, to_date, to_int, to_number
+from .utils import clean_identifier, clean_text, coverage_semaphore, parse_month_key, to_date, to_int, to_number
 
 
 UPLOAD_STATUS_PROCESSING = "processing"
@@ -229,7 +229,7 @@ def personal_data(row: pd.Series) -> dict[str, Any]:
         "provincia": text_value(row, "Desc_prov"),
         "distrito": text_value(row, "Desc_Dist"),
         "microred": text_value(row, "Des_MicroRed"),
-        "renaes": text_value(row, "pre_CodigoRENAES"),
+        "renaes": identifier_value(row, "pre_CodigoRENAES"),
         "establecimiento": text_value(row, "Des_EESS"),
     }
 
@@ -251,7 +251,7 @@ def create_record(upload_id: PythonUUID, row: pd.Series, package: dict[str, Any]
         province=text_value(row, "Desc_prov"),
         district=text_value(row, "Desc_Dist"),
         microred=text_value(row, "Des_MicroRed"),
-        facility_code=text_value(row, "pre_CodigoRENAES"),
+        facility_code=identifier_value(row, "pre_CodigoRENAES"),
         facility=text_value(row, "Des_EESS"),
         period_key=period_key,
         period_label=period_label,
@@ -276,6 +276,8 @@ def component_detail(row: pd.Series, package: dict[str, Any], component: dict[st
             "establecimiento_atencion": text_value(row, component.get("facility_col", "")),
             "lab": text_value(row, component.get("lab_col", "")),
             "lote": text_value(row, component.get("lot_col", "")),
+            "dosis_registradas": 1 if text_value(row, component["date_col"]) else 0,
+            "dosis_evaluadas": 1 if component["group"] == "vacunas" else 0,
         }
     )
     return jsonable(detail)
@@ -343,7 +345,7 @@ def create_omission(upload_id: PythonUUID, record_id: PythonUUID, row: pd.Series
         "afi_apmaterno": text_value(row, "afi_apmaterno"),
         "Desc_prov": text_value(row, "Desc_prov"),
         "Des_MicroRed": text_value(row, "Des_MicroRed"),
-        "pre_CodigoRENAES": text_value(row, "pre_CodigoRENAES"),
+        "pre_CodigoRENAES": identifier_value(row, "pre_CodigoRENAES"),
         "Des_EESS": text_value(row, "Des_EESS"),
         "component": observed[0]["key"] if observed else None,
         "components_observed": components_observed or None,
@@ -430,6 +432,9 @@ def detail_from_component_result(component: ComponentResult) -> dict[str, Any]:
     detail.setdefault("profesional", component.professional)
     detail.setdefault("lab", component.lab)
     detail.setdefault("lote", component.lot)
+    if component.component_group == "vacunas":
+        detail.setdefault("dosis_registradas", 1 if component.attention_date else 0)
+        detail.setdefault("dosis_evaluadas", 1)
     return jsonable(detail)
 
 
@@ -468,7 +473,7 @@ def search_result_from_record(record: IndicatorRecord, component_results: list[C
             "edadGEst": to_int(raw_data.get("edadGEst")),
             "Desc_prov": record.province,
             "Des_MicroRed": record.microred,
-            "pre_CodigoRENAES": record.facility_code,
+            "pre_CodigoRENAES": clean_identifier(record.facility_code),
             "Des_EESS": record.facility,
         },
         "vacunas": {
