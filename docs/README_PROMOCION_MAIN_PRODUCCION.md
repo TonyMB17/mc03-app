@@ -4,8 +4,9 @@ Este proyecto usa la rama de desarrollo para conservar documentacion, decisiones
 
 ## Regla general
 
-- La rama de desarrollo conserva `README.md`, `backend/README.md`, `docs/` y notas de implementacion.
-- La rama `main` recibe solo codigo, configuracion, migraciones, assets versionados y archivos necesarios para despliegue.
+- La rama de desarrollo conserva la documentacion completa: `backend/README.md`, `docs/` y notas de implementacion.
+- La rama `main` recibe codigo, configuracion, migraciones, assets versionados y archivos necesarios para despliegue.
+- `README.md` es la unica documentacion permitida en `main`; debe ser una guia breve para levantar el proyecto en produccion/despliegue.
 - No promover a `main` documentacion de trabajo, bitacoras, pruebas exploratorias ni archivos temporales.
 
 ## Flujo recomendado
@@ -30,13 +31,13 @@ Este proyecto usa la rama de desarrollo para conservar documentacion, decisiones
 - `docker-compose.yml`
 - `.dockerignore`
 - `.gitignore`
+- `README.md`
 - `alembic.ini`
 
-Excluir de esta lista archivos de documentacion o pruebas si estan dentro de esas rutas y no son necesarios para ejecutar produccion.
+Excluir de esta lista archivos de documentacion o pruebas si estan dentro de esas rutas y no son necesarios para ejecutar produccion. La unica excepcion documental es `README.md`.
 
 ## Rutas que no deben promoverse a main
 
-- `README.md`
 - `backend/README.md`
 - `docs/`
 - `backend/tests/`
@@ -52,8 +53,8 @@ git pull --ff-only origin main
 git checkout codex/visual-security-improvements -- backend frontend/src frontend/dist docker-compose.yml
 
 # Retirar rutas de documentacion o pruebas si entraron por estar dentro de una carpeta amplia.
-git restore --staged README.md backend/README.md docs backend/tests
-git restore README.md backend/README.md docs backend/tests
+git restore --staged backend/README.md docs backend/tests
+git restore backend/README.md docs backend/tests
 
 git status --short
 npm run build --prefix frontend
