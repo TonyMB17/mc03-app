@@ -100,7 +100,7 @@ function PackageFileGrid({ files }) {
 
 function InfoCell({ label, value, icon: Icon }) {
   return (
-    <div className="flex min-h-[4.25rem] items-center gap-3 rounded-xl border border-base-300 bg-base-100 p-3 shadow-sm">
+    <div className="flex min-h-0 items-center gap-3 rounded-xl border border-base-300 bg-base-100 p-3 shadow-sm sm:min-h-[4.25rem]">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary/10 text-secondary ring-1 ring-secondary/20">
         <Icon className="h-4 w-4" />
       </span>
@@ -114,16 +114,16 @@ function InfoCell({ label, value, icon: Icon }) {
 
 function SectionTitleCard({ eyebrow, title, description, icon: Icon, action }) {
   return (
-    <div className="flex h-full items-start gap-3 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+    <div className="flex h-full flex-col gap-3 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm sm:flex-row sm:items-start">
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-content">
         <Icon className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
         {eyebrow && <p className="text-xs font-bold uppercase tracking-[0.16em] text-secondary">{eyebrow}</p>}
-        <h2 className="mt-1 break-words text-lg font-black text-primary">{title}</h2>
-        {description && <p className="mt-1 text-sm leading-5 text-clinic-muted">{description}</p>}
+        <h2 className="mt-1 break-words text-base font-black text-primary sm:text-lg">{title}</h2>
+        {description && <p className="mt-1 hidden text-sm leading-5 text-clinic-muted sm:block">{description}</p>}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {action && <div className="w-full shrink-0 sm:w-auto">{action}</div>}
     </div>
   );
 }
@@ -170,7 +170,7 @@ function OperationalStatus({ status, preview, currentData }) {
         <Icon className={`h-4 w-4 ${status === 'uploading' || status === 'activating' ? 'animate-spin' : ''}`} />
         {current.label}
       </p>
-      <p className="mt-2 text-sm font-semibold leading-5">{current.description}</p>
+      <p className="mt-2 hidden text-sm font-semibold leading-5 sm:block">{current.description}</p>
     </div>
   );
 }
@@ -191,7 +191,7 @@ function StatusRow({ number, title, description, state = 'pending' }) {
       </span>
       <div>
         <p className="text-sm font-bold">{title}</p>
-        <p className="text-xs font-semibold opacity-80">{description}</p>
+        <p className="hidden text-xs font-semibold opacity-80 sm:block">{description}</p>
       </div>
     </div>
   );
@@ -446,15 +446,15 @@ function DataUploadView({ selectedIndicator }) {
 
   return (
     <section className="space-y-4">
-      <SectionPanel className="p-4 lg:p-5">
-        <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.9fr]">
+      <SectionPanel className="p-3 sm:p-4 lg:p-5">
+        <div className="grid gap-2 sm:gap-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.9fr]">
           <SectionTitleCard
             eyebrow="Fuente de datos activa"
             title={currentSummary?.original_name || currentSummary?.filename || 'Sin archivo cargado'}
             description="Archivo usado por busqueda, dashboard y exportaciones."
             icon={DatabaseZap}
             action={(
-              <button type="button" onClick={loadCurrentData} className="btn btn-outline btn-secondary btn-sm">
+              <button type="button" onClick={loadCurrentData} className="btn btn-outline btn-secondary btn-sm w-full sm:w-auto">
                 <RefreshCcw className="h-4 w-4" />
                 Actualizar
               </button>
@@ -466,7 +466,7 @@ function DataUploadView({ selectedIndicator }) {
         </div>
       </SectionPanel>
 
-      <SectionPanel className="p-4 lg:p-5">
+      <SectionPanel className="p-3 sm:p-4 lg:p-5">
         <div className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
           <SectionTitleCard
             eyebrow="Carga del archivo"
@@ -498,7 +498,7 @@ function DataUploadView({ selectedIndicator }) {
               </span>
               <div>
                 <h3 className="font-bold text-clinic-ink">Archivo a procesar</h3>
-                <p className="text-sm text-clinic-muted">{isPackageUpload ? 'El paquete no se activa hasta validar los 4 archivos.' : 'El archivo no se activa hasta validar.'}</p>
+                <p className="hidden text-sm text-clinic-muted sm:block">{isPackageUpload ? 'El paquete no se activa hasta validar los 4 archivos.' : 'El archivo no se activa hasta validar.'}</p>
               </div>
             </div>
 
@@ -561,7 +561,7 @@ function DataUploadView({ selectedIndicator }) {
           <section className="overflow-hidden rounded-xl border border-base-300 bg-base-100">
             <div className="border-b border-base-300 bg-base-200 px-4 py-3">
               <h2 className="text-xl font-black text-primary">Resultado de validacion</h2>
-              <p className="text-sm text-clinic-muted">Resumen antes de activar el archivo como fuente oficial.</p>
+              <p className="hidden text-sm text-clinic-muted sm:block">Resumen antes de activar el archivo como fuente oficial.</p>
             </div>
 
             {!preview ? (
@@ -569,7 +569,7 @@ function DataUploadView({ selectedIndicator }) {
                 <div className="max-w-md text-center">
                   <UploadCloud className="mx-auto h-11 w-11 text-secondary" />
                   <h3 className="mt-3 text-lg font-bold text-clinic-ink">Sin archivo validado</h3>
-                  <p className="mt-2 text-sm leading-5 text-clinic-muted">
+                  <p className="mt-2 hidden text-sm leading-5 text-clinic-muted sm:block">
                     Selecciona un Excel y presiona validar para ver corte, registros, meses, provincias y observaciones.
                   </p>
                 </div>
@@ -623,7 +623,7 @@ function DataUploadView({ selectedIndicator }) {
         </div>
       </SectionPanel>
 
-      <SectionPanel className="p-4 lg:p-5">
+      <SectionPanel className="p-3 sm:p-4 lg:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <SectionTitleCard
             eyebrow="Auditoria"
@@ -631,7 +631,7 @@ function DataUploadView({ selectedIndicator }) {
             description="Versiones procesadas, archivo, actor, estado y hash SHA-256."
             icon={FileCheck2}
             action={(
-              <button type="button" onClick={loadUploadHistory} className="btn btn-outline btn-secondary btn-sm">
+              <button type="button" onClick={loadUploadHistory} className="btn btn-outline btn-secondary btn-sm w-full sm:w-auto">
                 <RefreshCcw className="h-4 w-4" />
                 Actualizar
               </button>

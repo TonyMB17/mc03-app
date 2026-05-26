@@ -871,3 +871,33 @@ npm run dev
 - `frontend/src/ConfigView.jsx` queda como pantalla de parametros operativos con cabecera `primary`, controles DaisyUI, `progress progress-secondary` para meta y badges para seguros.
 - Se redujeron gradientes y clases ad hoc en estas vistas; los colores quedan reservados para marca, interaccion y estados de salud/seguridad.
 - Validacion tecnica: `npm run build` OK.
+
+### Ajuste de layout - Navegacion flotante y footer
+- Se agrego `frontend/src/hooks/useCompactHeader.js` para detectar scroll y activar modo compacto del header fijo.
+- El header oculta descripcion y reduce altura al bajar en la pagina, manteniendo indicador activo y contexto operativo visibles.
+- La navegacion de modulos queda como barra flotante `sticky` dentro del area principal para acceder a busqueda, dashboard, configuracion, carga y usuarios durante el scroll.
+- Se agrego `frontend/src/components/PlatformFooter.jsx` con informacion institucional, version operativa y nota de proteccion/auditoria.
+- Validacion tecnica: `npm run build` OK.
+
+### Revision responsiva del frontend
+- Se agrego `frontend/src/hooks/useMediaQuery.js` para adaptar el shell segun breakpoint de escritorio.
+- En pantallas pequenas el sidebar queda compacto por defecto y el contenido principal conserva un desplazamiento lateral minimo, evitando que el drawer expandido reduzca todo el ancho util.
+- `TopbarChip`, `ModuleTab`, `PageHeader` y `UsiTabs` se ajustaron para truncar, desplazarse horizontalmente o reducir padding en vistas estrechas.
+- `LoginView`, `SearchDNI` y `AutomationView` recibieron ajustes de alto/ancho para evitar recortes, botones desbordados y consolas demasiado altas en movil.
+- Validacion tecnica: `npm run build` OK. La prueba visual automatizada con Playwright no se completo porque el runtime local no tiene disponible `playwright-core`.
+
+### Ajuste responsivo movil - Drawer y compactacion
+- En pantallas pequenas el sidebar se oculta completamente y se abre como drawer desde un boton `Menu` integrado en el header.
+- El contenido principal y el header ya no reservan ancho lateral en movil, por lo que las vistas usan todo el ancho disponible.
+- El nav flotante ajusta su posicion segun header compacto/escritorio/movil para evitar quedar debajo del header fijo.
+- El header movil oculta textos secundarios, resume chips de contexto y reduce informacion explicativa para priorizar acciones.
+- `DataUploadView` se compacto en movil: textos descriptivos ocultos, acciones a ancho completo y tarjetas sin minimos altos innecesarios.
+- Validacion tecnica: `npm run build` OK.
+
+### Ajuste responsivo movil - Login compacto
+- `LoginView` oculta el panel institucional grande en pantallas pequenas para mostrar directamente el formulario.
+- El formulario reduce padding, espacios verticales, tamanio del isotipo y texto explicativo secundario en movil.
+- En movil se agrego un card institucional separado sobre el formulario con isotipo, Red de Salud Abancay y nombre del sistema.
+- El card del formulario queda enfocado solo en `Iniciar sesion` y credenciales.
+- El panel institucional completo se conserva desde escritorio para mantener identidad visual sin bloquear el acceso.
+- Validacion tecnica: `npm run build` OK.

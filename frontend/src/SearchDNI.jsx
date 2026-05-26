@@ -33,7 +33,7 @@ const componentLabels = {
   rotavirus: 'Vacuna rotavirus',
   antipolio: 'Vacuna antipolio',
   pentavalente: 'Vacuna pentavalente',
-  hierro_menor_6m: 'Hierro menor de 6 meses',
+  hierro_menor_6m: 'Hierro 4 meses',
   hierro_mayor_6m: 'Hierro mayor de 6 meses',
   hemoglobina: 'Dosaje de hemoglobina',
 };
@@ -174,7 +174,7 @@ function PatientSummaryCard({ result, metrics }) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           {metrics.map((item) => (
             <div key={item.value} className="rounded-xl border border-base-300 bg-base-100 px-3 py-2 text-left">
               <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-base-content/55">{item.kicker}</p>
@@ -356,7 +356,7 @@ function SearchDNI({
               <button
                 type="submit"
                 disabled={loading}
-                className="icon-button btn-primary px-6 py-3 disabled:opacity-50"
+                className="icon-button btn-primary w-full px-6 py-3 disabled:opacity-50 lg:w-auto"
               >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                 {loading ? 'Buscando...' : 'Buscar'}
@@ -365,11 +365,11 @@ function SearchDNI({
           </div>
 
           <div className="rounded-lg border border-clinic-line bg-clinic-sky/70 p-4">
-            <p className="text-xs font-bold uppercase text-clinic-muted">Consulta nominal</p>
-            <p className="mt-2 text-sm leading-6 text-clinic-muted">
+            {/* <p className="text-xs font-bold uppercase text-clinic-muted">Consulta nominal</p> */}
+            <p className="text-sm leading-6 text-clinic-muted">
               {isSi02 && selectedSubindicatorInfo
                 ? `Consulta solo ${selectedSubindicatorInfo.officialCode} para revisar sus atenciones y observaciones.`
-                : 'Busca por identificador para revisar paquete, ventanas normativas, atenciones registradas y alertas.'}
+                : 'Busqueda para revisar paquete, ventanas normativas, atenciones registradas y alertas.'}
             </p>
           </div>
         </div>
