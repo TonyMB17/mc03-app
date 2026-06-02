@@ -1,0 +1,146 @@
+# Backend - Sistema de Seguimiento Neonatal
+
+Esta carpeta contiene el backend FastAPI para el proyecto MC-03.
+
+## Instalación
+
+1. Crear un entorno virtual:
+
+```powershell
+C:\Users\USUARIO\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+2. Instalar dependencias:
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+## Arrancar el servidor
+
+Si estás dentro de la carpeta `backend`:
+
+```powershell
+uvicorn main:app --reload
+```
+
+O bien, usando el script de arranque:
+
+```powershell
+uvicorn run:app --reload
+```
+
+Si prefieres ejecutar desde la raíz del proyecto:
+
+```powershell
+uvicorn backend.main:app --reload
+```
+
+El entorno virtual esperado es `backend/.venv` con Python 3.12. Evita crear `.venv` o `.venv312` en la raiz del proyecto.
+
+## Endpoints principales
+
+- `GET /health`
+- `GET /api/report/summary`
+- `GET /api/report/omisos`
+
+## PostgreSQL
+
+La migracion a base de datos inicia con SQLAlchemy y Alembic. Copia el archivo de ejemplo y ajusta tus credenciales locales:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Variable principal:
+
+```env
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/indicator_tracking
+```
+
+## Seguridad por roles y usuarios
+
+La seguridad usa usuarios persistidos en PostgreSQL, contrasenas con hash Argon2 y token Bearer firmado con `AUTH_SECRET_KEY`. Se mantienen tres roles base:
+
+- `clinical`: busqueda por DNI/CNV.
+- `supervisor`: busqueda, dashboard y descargas.
+- `admin`: busqueda, dashboard, descargas, configuracion, carga de datos y administracion de usuarios.
+
+Permisos principales:
+
+- `search`
+- `dashboard`
+- `downloads`
+- `config`
+- `data_upload`
+- `users_admin`
+
+Variables:
+
+```env
+AUTH_ENABLED=true
+AUTH_SECRET_KEY=usar-un-secreto-largo
+AUTH_TOKEN_TTL_MINUTES=480
+AUTH_USERS_JSON={"admin":{"password":"cambiar-admin","role":"admin","display_name":"Administrador"}}
+```
+
+`AUTH_USERS_JSON` se usa como semilla inicial: crea los usuarios indicados solo si aun no existen. Si no se define y la tabla esta vacia, el sistema crea un usuario `admin` con contrasena temporal `admin123`.
+
+En desarrollo `AUTH_ENABLED=false` deja pasar como administrador local para no bloquear pruebas. En entorno real, usar `AUTH_ENABLED=true`, una clave larga en `AUTH_SECRET_KEY` y cambiar las contrasenas iniciales desde la vista **Usuarios**.
+
+Endpoints administrativos:
+
+- `GET /api/security/users`
+- `POST /api/security/users`
+- `PATCH /api/security/users/{username}`
+- `GET /api/security/roles`
+
+## Auditoria y respaldo
+
+La fase 10 registra historial de cargas y eventos de auditoria:
+
+- archivo original
+- hash SHA-256
+- usuario que sube
+- usuario que activa
+- estado de procesamiento
+- errores de carga
+- eventos `upload_processing_started`, `upload_activated` y `upload_failed`
+
+Endpoints de administracion:
+
+- `GET /api/data/uploads?indicator=mc03`
+- `GET /api/audit/events?indicator=mc03`
+
+Respaldo manual de PostgreSQL:
+
+```powershell
+python -m backend.db.backup
+```
+
+El script usa `pg_dump`, por lo que las herramientas cliente de PostgreSQL deben estar disponibles en el `PATH` o se debe configurar `PG_DUMP_PATH`. Los respaldos se escriben en `backend/backups/`, carpeta excluida de git, y se eliminan automaticamente los `.dump` mas antiguos que `BACKUP_RETENTION_DAYS`.
+
+Variables de retencion:
+
+```env
+BACKUP_RETENTION_DAYS=30
+UPLOAD_RETENTION_DAYS=7
+```
+
+`UPLOAD_RETENTION_DAYS` controla la limpieza automatica de cargas antiguas en PostgreSQL: una version `superseded` o `failed` se elimina cuando supera ese numero de dias sin ser activa. La version activa nunca se elimina por esta limpieza. Los archivos temporales/procesados de una carga persistida se eliminan al activarla.
+
+Base sugerida:
+
+```powershell
+createdb -U postgres indicator_tracking
+```
+
+Comandos base de migracion:
+
+```powershell
+alembic -c alembic.ini current
+alembic -c alembic.ini upgrade head
+```
+
+La lógica de reporte está preparada para ser extendida con datos reales de HIS y el padrón nominal.
