@@ -22,8 +22,10 @@ services:
       dockerfile: backend/Dockerfile
     container_name: indicadores-backend
     env_file:
-      - .env
-      - backend/.env
+      - path: .env
+        required: false
+      - path: backend/.env
+        required: false
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@db:5432/indicator_tracking}
       AUTH_ENABLED: ${AUTH_ENABLED:-true}

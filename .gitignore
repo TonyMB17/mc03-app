@@ -27,3 +27,4 @@ node_modules/
 .vscode/
 *.swp
 .DS_Store
+desktop.ini

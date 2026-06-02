@@ -16,7 +16,7 @@ import AutomationView from './pages/AutomationView';
 import LoginView from './LoginView';
 import SearchDNI from './pages/RecordSearch';
 import SecurityUsers from './pages/SecurityUsers';
-import usiLogoIcon from './assets/usi-logo-isotipo.svg';
+import usiLogoIcon from './assets/svg/usi-logo-isotipo.svg';
 
 const views = {
   search: {

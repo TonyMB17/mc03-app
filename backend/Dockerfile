@@ -16,10 +16,11 @@ RUN python -m pip install --upgrade pip \
 
 COPY backend /app/backend
 
-RUN chmod +x /app/backend/docker-entrypoint.sh \
+RUN sed -i 's/\r$//' /app/backend/docker-entrypoint.sh \
+    && chmod +x /app/backend/docker-entrypoint.sh \
     && mkdir -p /app/backend/uploads /app/backend/processed_uploads /app/backend/backups /app/data_samples
 
 EXPOSE 8000
 
-ENTRYPOINT ["/app/backend/docker-entrypoint.sh"]
+ENTRYPOINT ["sh", "/app/backend/docker-entrypoint.sh"]
 CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

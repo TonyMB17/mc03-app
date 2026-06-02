@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Activity, DatabaseZap, Loader2, LockKeyhole, ShieldCheck, UserRoundCheck } from 'lucide-react';
 import api, { saveAuthUser, setAuthToken } from './api/client';
-import usiLogoComplete from './assets/usi-logo-completo.svg';
-import usiLogoIcon from './assets/usi-logo-isotipo.svg';
+import usiLogoComplete from './assets/svg/usi-logo-completo.svg';
+import usiLogoIcon from './assets/svg/usi-logo-isotipo.svg';
 
 const accessHighlights = [
   { icon: UserRoundCheck, label: 'Acceso por roles', value: 'Clinico, supervisor y administrador' },
